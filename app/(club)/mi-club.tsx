@@ -1,5 +1,5 @@
 import * as Clipboard from "expo-clipboard";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -30,6 +30,33 @@ const POSICION_COLOR: Record<string, string> = {
   DEFENDER: "#3b82f6",
   MIDFIELDER: "#8b5cf6",
   FORWARD: "#16a34a",
+};
+
+// Orden táctico: portero → defensa → centrocampista → delantero
+const POSICION_ORDEN: Record<string, number> = {
+  GOALKEEPER: 1,
+  DEFENDER:   2,
+  MIDFIELDER: 3,
+  FORWARD:    4,
+};
+
+// Jerarquía de rol de staff (enum StaffRoleType del backend)
+const STAFF_ROL_ORDEN: Record<string, number> = {
+  HEAD_COACH:      1,
+  ASSISTANT:       2,
+  FITNESS_COACH:   3,
+  PHYSIOTHERAPIST: 4,
+  DELEGATE:        5,
+  OTHER:           6,
+};
+
+const STAFF_ROL_LABEL: Record<string, string> = {
+  HEAD_COACH:      "Entrenador Principal",
+  ASSISTANT:       "Asistente",
+  FITNESS_COACH:   "Preparador Físico",
+  PHYSIOTHERAPIST: "Fisioterapeuta",
+  DELEGATE:        "Delegado",
+  OTHER:           "Otro",
 };
 
 /** Avatar reutilizable: muestra imagen si existe, o iniciales con color de fondo */
@@ -101,6 +128,11 @@ export default function MiClub() {
   const [playerStats, setPlayerStats] = useState<any>(null);
   const [loadingStats, setLoadingStats] = useState(false);
 
+  type PlayerSort = "POSITION" | "NAME" | "BIRTH_DATE";
+  type StaffSort  = "ROLE" | "NAME";
+  const [playerSort, setPlayerSort] = useState<PlayerSort>("POSITION");
+  const [staffSort,  setStaffSort]  = useState<StaffSort>("ROLE");
+
   // ── CARGAR EQUIPOS ───────────────────────────────────────────────────────
   useEffect(() => {
     async function loadTeams() {
@@ -171,6 +203,31 @@ export default function MiClub() {
     await Clipboard.setStringAsync(code);
     Alert.alert("¡Copiado!", "El código de invitación se ha copiado al portapapeles.");
   };
+
+  // ── LISTAS ORDENADAS ────────────────────────────────────────────────────
+  const sortedPlantilla = useMemo(() => {
+    const list: any[] = data?.plantilla ?? [];
+    return [...list].sort((a, b) => {
+      if (playerSort === "POSITION") {
+        return (POSICION_ORDEN[a.position] ?? 99) - (POSICION_ORDEN[b.position] ?? 99);
+      }
+      if (playerSort === "NAME") {
+        return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+      }
+      // BIRTH_DATE — más joven primero (fecha más reciente = mayor string YYYY-MM-DD)
+      return (b.birthDate || "").localeCompare(a.birthDate || "");
+    });
+  }, [data?.plantilla, playerSort]);
+
+  const sortedStaff = useMemo(() => {
+    const list: any[] = data?.staff ?? [];
+    return [...list].sort((a, b) => {
+      if (staffSort === "ROLE") {
+        return (STAFF_ROL_ORDEN[a.staffRole] ?? 99) - (STAFF_ROL_ORDEN[b.staffRole] ?? 99);
+      }
+      return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+    });
+  }, [data?.staff, staffSort]);
 
   // ── GUARDS ───────────────────────────────────────────────────────────────
   if (loading && !data)
@@ -332,12 +389,30 @@ export default function MiClub() {
           </View>
 
           {/* ─── STAFF ───────────────────────────────────────────────────── */}
-          <Text style={[styles.sectionTitle, { color: c.texto }]}>
-            🎽 Staff técnico
-          </Text>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, { color: c.texto, marginBottom: 0 }]}>
+              🎽 Staff técnico
+            </Text>
+            <View style={styles.sortChipsRow}>
+              {([{ value: "ROLE" as const, label: "Rol" }, { value: "NAME" as const, label: "A-Z" }]).map(({ value, label }) => (
+                <TouchableOpacity
+                  key={value}
+                  style={[styles.sortChip, {
+                    backgroundColor: staffSort === value ? `${c.boton}20` : c.input,
+                    borderColor:     staffSort === value ? c.boton : c.bordeInput,
+                  }]}
+                  onPress={() => setStaffSort(value)}
+                >
+                  <Text style={[styles.sortChipText, { color: staffSort === value ? c.boton : c.subtexto }]}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
           {data.staff?.length > 0 ? (
             <View style={styles.staffList}>
-              {data.staff.map((m: any) => (
+              {sortedStaff.map((m: any) => (
                 <TouchableOpacity
                   key={m.id}
                   style={[
@@ -364,7 +439,7 @@ export default function MiClub() {
                     )}
                     {m.staffRole && (
                       <Text style={[styles.staffPhone, { color: c.subtexto }]}>
-                        {m.staffRole}
+                        {STAFF_ROL_LABEL[m.staffRole] || m.staffRole}
                       </Text>
                     )}
                   </View>
@@ -381,14 +456,34 @@ export default function MiClub() {
           )}
 
           {/* ─── PLANTILLA ─────────────────────────────────────────────────── */}
-          <Text
-            style={[styles.sectionTitle, { color: c.texto, marginTop: 24 }]}
-          >
-            ⚽ Plantilla
-          </Text>
+          <View style={[styles.sectionHeaderRow, { marginTop: 24 }]}>
+            <Text style={[styles.sectionTitle, { color: c.texto, marginBottom: 0 }]}>
+              ⚽ Plantilla
+            </Text>
+            <View style={styles.sortChipsRow}>
+              {([
+                { value: "POSITION"   as const, label: "Posición" },
+                { value: "NAME"       as const, label: "A-Z"      },
+                { value: "BIRTH_DATE" as const, label: "Edad"     },
+              ]).map(({ value, label }) => (
+                <TouchableOpacity
+                  key={value}
+                  style={[styles.sortChip, {
+                    backgroundColor: playerSort === value ? `${c.boton}20` : c.input,
+                    borderColor:     playerSort === value ? c.boton : c.bordeInput,
+                  }]}
+                  onPress={() => setPlayerSort(value)}
+                >
+                  <Text style={[styles.sortChipText, { color: playerSort === value ? c.boton : c.subtexto }]}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
           {data.plantilla?.length > 0 ? (
             <View style={styles.jugadoresList}>
-              {data.plantilla.map((j: any) => {
+              {sortedPlantilla.map((j: any) => {
                 const posColor = POSICION_COLOR[j.position] || c.boton;
                 return (
                   <TouchableOpacity
@@ -541,7 +636,7 @@ export default function MiClub() {
                     ]}
                   >
                     <Text style={[styles.detailRolText, { color: c.boton }]}>
-                      {detailPerson.staffRole}
+                      {STAFF_ROL_LABEL[detailPerson.staffRole] || detailPerson.staffRole}
                     </Text>
                   </View>
                 ) : null
@@ -993,4 +1088,21 @@ const styles = StyleSheet.create({
   },
   statValue: { fontSize: 28, fontWeight: "bold", marginBottom: 4 },
   statLabel: { fontSize: 11, fontWeight: "600", textAlign: "center" },
+
+  sectionHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  sortChipsRow: { flexDirection: "row", gap: 6 },
+  sortChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  sortChipText: { fontSize: 11, fontWeight: "700" },
 });

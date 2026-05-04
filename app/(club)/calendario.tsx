@@ -52,6 +52,39 @@ const MATCH_TYPES = [
   { value: "OTHER", label: "Otro" },
 ];
 
+// PickerBtn definido a nivel de módulo para evitar que React lo desmonte
+// en cada re-render del componente padre (pérdida de foco).
+type PickerColors = { input: string; boton: string; bordeInput: string; texto: string; subtexto: string };
+
+const PickerBtn = ({
+  label, value, onPress, mode, onChange, colors,
+}: {
+  label: string;
+  value: string;
+  onPress: () => void;
+  mode: "date" | "time";
+  onChange?: (v: string) => void;
+  colors: PickerColors;
+}) => {
+  if (Platform.OS === "web") {
+    return (
+      <View style={[styles.pickerBtn, { backgroundColor: colors.input, borderColor: value ? colors.boton : colors.bordeInput }]}>
+        <input
+          type={mode}
+          value={value || ""}
+          onChange={(e) => onChange?.(e.target.value)}
+          style={{ border: "none", background: "transparent", fontSize: 15, color: colors.texto, outline: "none", width: "100%", padding: 4 }}
+        />
+      </View>
+    );
+  }
+  return (
+    <TouchableOpacity style={[styles.pickerBtn, { backgroundColor: colors.input, borderColor: value ? colors.boton : colors.bordeInput }]} onPress={onPress}>
+      <Text style={{ color: value ? colors.texto : colors.subtexto, fontSize: 15 }}>{value || label}</Text>
+    </TouchableOpacity>
+  );
+};
+
 const toDateString = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
@@ -407,35 +440,6 @@ export default function Calendario() {
     return grid;
   };
 
-  // ─── PICKER BUTTON ────────────────────────────────────────────────────────
-  const PickerBtn = ({
-    label, value, onPress, mode, onChange,
-  }: {
-    label: string;
-    value: string;
-    onPress: () => void;
-    mode: "date" | "time";
-    onChange?: (v: string) => void;
-  }) => {
-    if (Platform.OS === "web") {
-      return (
-        <View style={[styles.pickerBtn, { backgroundColor: c.input, borderColor: value ? c.boton : c.bordeInput }]}>
-          <input
-            type={mode}
-            value={value || ""}
-            onChange={(e) => onChange?.(e.target.value)}
-            style={{ border: "none", background: "transparent", fontSize: 15, color: c.texto, outline: "none", width: "100%", padding: 4 }}
-          />
-        </View>
-      );
-    }
-    return (
-      <TouchableOpacity style={[styles.pickerBtn, { backgroundColor: c.input, borderColor: value ? c.boton : c.bordeInput }]} onPress={onPress}>
-        <Text style={{ color: value ? c.texto : c.subtexto, fontSize: 15 }}>{value || label}</Text>
-      </TouchableOpacity>
-    );
-  };
-
   return (
     <ScreenContainer>
       <View style={[styles.wrapper, { backgroundColor: c.fondo }]}>
@@ -591,10 +595,10 @@ export default function Calendario() {
               </View>
 
               <Text style={[styles.inputLabel, { color: c.texto }]}>Desde</Text>
-              <PickerBtn label="Fecha inicio" value={exportFrom} onPress={() => {}} mode="date" onChange={(v) => setExportFrom(v)} />
+              <PickerBtn label="Fecha inicio" value={exportFrom} onPress={() => {}} mode="date" onChange={(v) => setExportFrom(v)} colors={c} />
 
               <Text style={[styles.inputLabel, { color: c.texto }]}>Hasta</Text>
-              <PickerBtn label="Fecha fin" value={exportTo} onPress={() => {}} mode="date" onChange={(v) => setExportTo(v)} />
+              <PickerBtn label="Fecha fin" value={exportTo} onPress={() => {}} mode="date" onChange={(v) => setExportTo(v)} colors={c} />
 
               <View style={{ flexDirection: "row", gap: 10, marginTop: 16 }}>
                 <TouchableOpacity style={[styles.btnCrear, { flex: 1, backgroundColor: c.input, borderWidth: 1, borderColor: c.bordeInput }]} onPress={() => setExportModal(false)}>
@@ -649,15 +653,32 @@ export default function Calendario() {
                           <Text style={[styles.metaText, { color: c.subtexto, marginTop: 3 }]}>👥 {item.teamName}</Text>
                         )}
                         {item.type === "MATCH" && (() => {
-                          const isToday = new Date(item.startTime).toDateString() === new Date().toDateString();
+                          const today = new Date(); today.setHours(0, 0, 0, 0);
+                          const matchDay = new Date(item.startTime); matchDay.setHours(0, 0, 0, 0);
+                          const diff = matchDay.getTime() - today.getTime();
+                          if (diff > 0) {
+                            return (
+                              <View style={[styles.liveBtn, { marginTop: 10, backgroundColor: '#9ca3af' }]}>
+                                <Text style={styles.liveBtnText}>⏳ Disponible el día del partido</Text>
+                              </View>
+                            );
+                          }
+                          if (diff === 0) {
+                            return (
+                              <TouchableOpacity
+                                style={[styles.liveBtn, { marginTop: 10, backgroundColor: '#16a34a' }]}
+                                onPress={() => { setDayModal(false); router.push(`/(club)/live-match/${item.id}?mode=LIVE`); }}
+                              >
+                                <Text style={styles.liveBtnText}>🟢 Iniciar Partido (En Vivo)</Text>
+                              </TouchableOpacity>
+                            );
+                          }
                           return (
                             <TouchableOpacity
-                              style={[styles.liveBtn, { marginTop: 10 }, !isToday && styles.liveBtnSecondary]}
-                              onPress={() => { setDayModal(false); router.push(`/(club)/live-match/${item.id}`); }}
+                              style={[styles.liveBtn, { marginTop: 10, backgroundColor: '#2563eb' }]}
+                              onPress={() => { setDayModal(false); router.push(`/(club)/live-match/${item.id}?mode=EDIT`); }}
                             >
-                              <Text style={[styles.liveBtnText, !isToday && styles.liveBtnTextSecondary]}>
-                                {isToday ? "⚡ Iniciar Partido en Vivo" : "▶ Acceder al Partido"}
-                              </Text>
+                              <Text style={styles.liveBtnText}>📊 Ver/Editar Estadísticas</Text>
                             </TouchableOpacity>
                           );
                         })()}
@@ -731,12 +752,12 @@ export default function Calendario() {
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.inputLabel, { color: c.texto }]}>Fecha *</Text>
                     <PickerBtn label="Seleccionar fecha" value={form.date} onPress={() => setShowDatePicker(true)} mode="date"
-                      onChange={(v) => setForm((f: any) => ({ ...f, date: v }))} />
+                      onChange={(v) => setForm((f: any) => ({ ...f, date: v }))} colors={c} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.inputLabel, { color: c.texto }]}>Hora *</Text>
                     <PickerBtn label="Seleccionar hora" value={form.time} onPress={() => setShowTimePicker(true)} mode="time"
-                      onChange={(v) => setForm((f: any) => ({ ...f, time: v }))} />
+                      onChange={(v) => setForm((f: any) => ({ ...f, time: v }))} colors={c} />
                   </View>
                 </View>
 
@@ -744,7 +765,7 @@ export default function Calendario() {
                   <View>
                     <Text style={[styles.inputLabel, { color: c.texto }]}>Hora fin</Text>
                     <PickerBtn label="Seleccionar hora fin" value={form.endTime} onPress={() => setShowEndTimePicker(true)} mode="time"
-                      onChange={(v) => setForm((f: any) => ({ ...f, endTime: v }))} />
+                      onChange={(v) => setForm((f: any) => ({ ...f, endTime: v }))} colors={c} />
                   </View>
                 )}
 
@@ -812,7 +833,7 @@ export default function Calendario() {
                         </View>
                         <Text style={[styles.inputLabel, { color: c.texto }]}>Repetir hasta</Text>
                         <PickerBtn label="Seleccionar fecha fin" value={form.recurringEndDate} onPress={() => setShowRecurringEndPicker(true)} mode="date"
-                          onChange={(v) => setForm((f: any) => ({ ...f, recurringEndDate: v }))} />
+                          onChange={(v) => setForm((f: any) => ({ ...f, recurringEndDate: v }))} colors={c} />
                       </>
                     )}
                   </>
