@@ -75,6 +75,13 @@ interface CalendarEvent {
   location?: string;
 }
 
+// Configuración visual por estado de convocatoria
+const CALLUP_STATUS_CFG = {
+  CALLED_UP: { label: "CONV.",  activeColor: "#16a34a", activeBg: "#dcfce7", badgeText: "Convocado"    },
+  ABSENT:    { label: "DESC.",  activeColor: "#dc2626", activeBg: "#fee2e2", badgeText: "Descartado"   },
+  INJURED:   { label: "BAJA",   activeColor: "#d97706", activeBg: "#fef3c7", badgeText: "Baja / Lesión" },
+} as const;
+
 const formatEventLabel = (e: CalendarEvent): string => {
   const d = new Date(e.startTime);
   const day = String(d.getDate()).padStart(2, "0");
@@ -412,9 +419,14 @@ export default function GestionCoach() {
           {callups.length === 0 ? (
             <Text style={[s.hintText, { color: c.subtexto }]}>Sin convocados aún.</Text>
           ) : callups.map((item, idx) => (
-            <View key={item.playerId} style={[s.playerRow, { backgroundColor: c.input }]}>
-              <View style={{ flex: 1 }}>
-                <Text style={[s.playerName, { color: c.texto }]}>{item.firstName} {item.lastName}</Text>
+            <View key={item.playerId} style={[s.playerRow, { backgroundColor: c.input, alignItems: "center" }]}>
+
+              {/* ── Lado izquierdo: nombre + stats + badge de estado ── */}
+              <View style={{ flex: 1, marginRight: 8 }}>
+                <Text style={[s.playerName, { color: c.texto }]} numberOfLines={1}>
+                  {item.firstName} {item.lastName}
+                </Text>
+
                 {(item.attendancePercentage != null || item.positiveMarksCount != null) && (
                   <Text style={{ fontSize: 11, color: c.subtexto, marginTop: 2 }}>
                     {[
@@ -423,29 +435,51 @@ export default function GestionCoach() {
                     ].filter(Boolean).join(" | ")}
                   </Text>
                 )}
+
+                {/* Badge de estado — feedback visual inmediato (Task 2) */}
+                <Text style={[s.callupStatusBadge, { color: CALLUP_STATUS_CFG[item.status].activeColor }]}>
+                  ● {CALLUP_STATUS_CFG[item.status].badgeText}
+                </Text>
               </View>
-              <View style={{ flexDirection: "row", gap: 4 }}>
-                {(["CALLED_UP", "ABSENT", "INJURED"] as const).map(st => (
-                  <TouchableOpacity
-                    key={st}
-                    style={[
-                      s.statusChip,
-                      { backgroundColor: item.status === st ? c.boton : c.bordeInput },
-                    ]}
-                    onPress={() => {
-                      const next = [...callups];
-                      next[idx].status = st;
-                      setCallups(next);
-                    }}
-                  >
-                    <Text style={[s.statusChipText, { color: item.status === st ? c.botonTexto : c.subtexto }]}>
-                      {st === "CALLED_UP" ? "✓" : st === "ABSENT" ? "A" : "🤕"}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+
+              {/* ── Lado derecho: chips de selección ── */}
+              <View style={s.callupChipsRow}>
+                {(["CALLED_UP", "ABSENT", "INJURED"] as const).map(st => {
+                  const cfg  = CALLUP_STATUS_CFG[st];
+                  const active = item.status === st;
+                  return (
+                    <TouchableOpacity
+                      key={st}
+                      accessibilityLabel={cfg.badgeText}
+                      accessibilityRole="button"
+                      style={[
+                        s.callupChip,
+                        {
+                          borderColor:     cfg.activeColor,
+                          backgroundColor: active ? cfg.activeBg : "transparent",
+                        },
+                      ]}
+                      onPress={() => {
+                        const next = [...callups];
+                        next[idx] = { ...next[idx], status: st };
+                        setCallups(next);
+                      }}
+                    >
+                      <Text style={[
+                        s.callupChipText,
+                        { color: active ? cfg.activeColor : c.subtexto,
+                          fontWeight: active ? "800" : "600" },
+                      ]}>
+                        {cfg.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
+
             </View>
           ))}
+
           <TouchableOpacity
             style={[s.btnPrimary, { backgroundColor: c.boton, opacity: saving ? 0.6 : 1 }]}
             onPress={handleSaveBulkCallups}
@@ -765,9 +799,19 @@ const s = StyleSheet.create({
   tabContent:     { padding: 20 },
   hintText:       { textAlign: "center", marginTop: 20 },
 
-  playerRow:      { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 12, marginBottom: 8, borderRadius: 10 },
-  playerName:     { fontWeight: "600", flex: 1 },
+  playerRow:      { flexDirection: "row", justifyContent: "space-between", padding: 12, marginBottom: 8, borderRadius: 10 },
+  playerName:     { fontWeight: "600", fontSize: 14 },
 
+  // Chips de convocatoria (Task 1)
+  callupChipsRow: { flexDirection: "row", gap: 4, alignItems: "center" },
+  callupChip:     { height: 30, paddingHorizontal: 7, borderRadius: 6, borderWidth: 1.5,
+                    alignItems: "center", justifyContent: "center", minWidth: 42 },
+  callupChipText: { fontSize: 9, letterSpacing: 0.4 },
+
+  // Badge de estado debajo del nombre (Task 2)
+  callupStatusBadge: { fontSize: 10, fontWeight: "600", marginTop: 3 },
+
+  // Estilos heredados usados en otras secciones del archivo
   statusChip:     { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
   statusChipText: { fontSize: 12, fontWeight: "700" },
 

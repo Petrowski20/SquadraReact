@@ -259,12 +259,16 @@ export default function Calendario() {
         onPress: async () => {
           setDeletingId(eventKey);
           try {
-            await apiFetch(`/api/calendar/${eventId}?clubId=${clubId}&type=${eventType}`, { method: "DELETE" });
+            const res = await apiFetch(`/api/calendar/${eventId}?clubId=${clubId}&type=${eventType}`, { method: "DELETE" });
+            if (!res.ok) {
+              Alert.alert("Error", `No se pudo eliminar el evento (HTTP ${res.status}).`);
+              return;
+            }
             setDayModal(false);
             fetchEvents();
             Alert.alert("Éxito", "Evento eliminado.");
           } catch {
-            Alert.alert("Error", "No se pudo eliminar el evento.");
+            Alert.alert("Error", "No se pudo eliminar el evento. Comprueba tu conexión.");
           } finally {
             setDeletingId(null);
           }
@@ -644,16 +648,18 @@ export default function Calendario() {
                         {item.teamName && (
                           <Text style={[styles.metaText, { color: c.subtexto, marginTop: 3 }]}>👥 {item.teamName}</Text>
                         )}
-                        {item.type === "MATCH" && canDeleteEvent(item) && (() => {
+                        {item.type === "MATCH" && (() => {
                           const isToday = new Date(item.startTime).toDateString() === new Date().toDateString();
-                          return isToday ? (
+                          return (
                             <TouchableOpacity
-                              style={[styles.liveBtn, { marginTop: 10 }]}
+                              style={[styles.liveBtn, { marginTop: 10 }, !isToday && styles.liveBtnSecondary]}
                               onPress={() => { setDayModal(false); router.push(`/(club)/live-match/${item.id}`); }}
                             >
-                              <Text style={styles.liveBtnText}>⚡ Iniciar Partido en Vivo</Text>
+                              <Text style={[styles.liveBtnText, !isToday && styles.liveBtnTextSecondary]}>
+                                {isToday ? "⚡ Iniciar Partido en Vivo" : "▶ Acceder al Partido"}
+                              </Text>
                             </TouchableOpacity>
-                          ) : null;
+                          );
                         })()}
                         {canDeleteEvent(item) && (
                           <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
@@ -889,6 +895,8 @@ const styles = StyleSheet.create({
   modalActionBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, borderWidth: 1, alignItems: "center" },
   liveBtn: { backgroundColor: "#16a34a", paddingVertical: 10, borderRadius: 10, alignItems: "center" },
   liveBtnText: { color: "#fff", fontWeight: "800", fontSize: 14 },
+  liveBtnSecondary: { backgroundColor: "transparent", borderWidth: 1.5, borderColor: "#6b7280" },
+  liveBtnTextSecondary: { color: "#6b7280" },
   dayModalHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: "#ccc", alignSelf: "center", marginBottom: 16 },
   dayEventCard: { borderRadius: 12, borderWidth: 1, borderLeftWidth: 4, padding: 12, marginBottom: 10 },
   dayEventBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
