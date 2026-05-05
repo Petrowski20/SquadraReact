@@ -8,7 +8,7 @@
     "scheme": "squadra",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/images/android-chrome-512x512.png",
+      "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
