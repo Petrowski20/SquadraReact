@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  ImageBackground,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,7 +13,7 @@ import {
 import { apiFetch } from "../../lib/api";
 import { useAuthStore } from "../../lib/store";
 import { useTheme } from "../../lib/useTheme";
-import ScreenContainer from "../../components/ScreenContainer";
+
 
 export default function Inicio() {
   const c = useTheme();
@@ -29,6 +30,12 @@ export default function Inicio() {
   const activeRole = useAuthStore((s: any) => s.activeRole);
 
   const isPresident = activeRole === "PRESIDENT";
+
+  const bgImage = c.isDark
+    ? require("../../assets/images/inicio-oscuro-1.jpg")
+    : require("../../assets/images/inicio-claro-1.png");
+  const overlayColor = c.isDark ? "rgba(0,0,0,0.75)" : "rgba(255, 255, 255, 0.35)";
+  const cardBg = c.isDark ? "rgba(35,35,35,0.70)" : "rgba(255,255,255,0.80)";
 
   // ── STATE ─────────────────────────────────────────────────────────────────
   const [saludo, setSaludo] = useState("");
@@ -99,9 +106,10 @@ export default function Inicio() {
   const sinDatos = isPresident ? !hayEquipos : !activeTeamId;
 
   return (
-    <ScreenContainer>
+    <ImageBackground source={bgImage} style={styles.bgImage} resizeMode="cover" blurRadius={10}>
+      <View style={[styles.overlay, { backgroundColor: overlayColor }]}>
       <ScrollView
-        style={{ flex: 1, backgroundColor: c.fondo }}
+        style={styles.scrollView}
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
@@ -171,7 +179,7 @@ export default function Inicio() {
           />
         ) : sinDatos ? (
           /* Pantalla vacía */
-          <View style={[styles.noTeamCard, { backgroundColor: c.input }]}>
+          <View style={[styles.noTeamCard, { backgroundColor: cardBg }]}>
             <Text style={{ fontSize: 40, marginBottom: 10 }}>🏟️</Text>
             <Text style={[styles.noTeamTitle, { color: c.texto }]}>
               {isPresident ? "¡Bienvenido, Presidente!" : "¡Bienvenido!"}
@@ -209,7 +217,7 @@ export default function Inicio() {
               <TouchableOpacity
                 style={[
                   styles.card,
-                  { backgroundColor: c.input, borderColor: c.bordeInput },
+                  { backgroundColor: cardBg, borderColor: c.bordeInput },
                 ]}
                 onPress={() => router.push("/tablon")}
               >
@@ -236,7 +244,7 @@ export default function Inicio() {
                 style={[
                   styles.card,
                   {
-                    backgroundColor: c.input,
+                    backgroundColor: cardBg,
                     opacity: 0.7,
                     borderStyle: "dashed",
                     borderColor: c.bordeInput,
@@ -269,7 +277,7 @@ export default function Inicio() {
                     style={[
                       styles.card,
                       {
-                        backgroundColor: c.input,
+                        backgroundColor: cardBg,
                         borderLeftWidth: 4,
                         borderLeftColor:
                           ev.tipo === "PARTIDO" ? c.boton : "#3b82f6",
@@ -311,7 +319,7 @@ export default function Inicio() {
                 style={[
                   styles.card,
                   {
-                    backgroundColor: c.input,
+                    backgroundColor: cardBg,
                     opacity: 0.7,
                     borderStyle: "dashed",
                     borderColor: c.bordeInput,
@@ -326,12 +334,15 @@ export default function Inicio() {
           </>
         )}
       </ScrollView>
-    </ScreenContainer>
+      </View>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: { flex: 1 },
+  bgImage: { flex: 1, width: '100%', height: '100%' },
+  overlay: { flex: 1 },
+  scrollView: { flex: 1 },
   container: { padding: 24, paddingTop: 60, paddingBottom: 40 },
   headerRow: {
     flexDirection: "row",

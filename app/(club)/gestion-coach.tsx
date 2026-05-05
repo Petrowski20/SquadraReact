@@ -31,6 +31,8 @@ interface Player {
   id: number;
   firstName: string;
   lastName: string;
+  photoUrl?: string | null;
+  has_image_consent?: boolean;
 }
 
 interface PlayerAttendanceItem {

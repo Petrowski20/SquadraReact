@@ -19,7 +19,8 @@
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.marcospedro.squadra"
     },
     "web": {
       "bundler": "metro",

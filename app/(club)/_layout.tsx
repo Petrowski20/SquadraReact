@@ -168,9 +168,9 @@ export default function ClubLayout() {
         <WebNavBar />
         <Drawer
           drawerContent={(props) => <DrawerContent {...props} />}
-          screenOptions={{ 
+          screenOptions={{
             headerShown: false,
-            sceneStyle: { backgroundColor: 'white' }
+            sceneStyle: { backgroundColor: 'transparent' }
           }}
         >
           {screens}

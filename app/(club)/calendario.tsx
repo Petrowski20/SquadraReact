@@ -1,9 +1,13 @@
 import DateTimePicker from "@react-native-community/datetimepicker";
+import * as DocumentPicker from "expo-document-picker";
 import { useFocusEffect, useRouter } from "expo-router";
+import Papa from "papaparse";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert, Modal,
+  Alert,
+  Linking,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -20,12 +24,14 @@ import { useTheme } from "../../lib/useTheme";
 interface CalendarEvent {
   id: number;
   type: "TRAINING" | "MATCH";
+  matchType?: string;
   startTime: string;
   endTime?: string;
   title: string;
   teamId: number;
   teamName: string;
   location?: string;
+  fieldId?: number | null;
 }
 
 interface Team {
@@ -36,6 +42,7 @@ interface Team {
 interface Field {
   id: number;
   name: string;
+  mapUrl?: string;
 }
 
 const MESES = [
@@ -51,6 +58,14 @@ const MATCH_TYPES = [
   { value: "TOURNAMENT", label: "Torneo" },
   { value: "OTHER", label: "Otro" },
 ];
+
+const MATCH_TYPE_DISPLAY: Record<string, { badge: string; icon: string }> = {
+  LEAGUE:     { badge: "LIGA",     icon: "⚽" },
+  CUP:        { badge: "COPA",     icon: "🏆" },
+  TOURNAMENT: { badge: "TORNEO",   icon: "🏆" },
+  FRIENDLY:   { badge: "AMISTOSO", icon: "🤝" },
+  OTHER:      { badge: "PARTIDO",  icon: "⚽" },
+};
 
 // PickerBtn definido a nivel de módulo para evitar que React lo desmonte
 // en cada re-render del componente padre (pérdida de foco).
@@ -90,6 +105,16 @@ const toDateString = (d: Date) =>
 
 const toTimeString = (d: Date) =>
   `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+
+// Convierte fecha local (YYYY-MM-DD) + hora local (HH:MM) al ISO UTC correcto.
+// Usar `new Date(y, m, d, h, min)` crea un Date en hora local; .toISOString() lo pasa a UTC.
+// Sin esta función se añadiría 'Z' a la hora local (ej. 17:30 local → 17:30Z), lo que
+// provoca que Supabase lo almacene como 17:30 UTC y la app lo muestre como 19:30 CEST.
+const buildUtcIso = (dateStr: string, timeStr: string): string => {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const [h, min] = (timeStr || "00:00").split(":").map(Number);
+  return new Date(y, m - 1, d, h, min, 0).toISOString();
+};
 
 const DAY_NAMES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 const formatSelectedDate = (dateStr: string | null): string => {
@@ -144,6 +169,8 @@ export default function Calendario() {
   const [exportTo, setExportTo] = useState("");
   const [exportTypes, setExportTypes] = useState<("TRAINING" | "MATCH")[]>(["TRAINING", "MATCH"]);
   const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importTeamModal, setImportTeamModal] = useState(false);
 
   // Pickers
   const [pickerDate, setPickerDate] = useState(new Date());
@@ -263,10 +290,10 @@ export default function Calendario() {
           }),
         });
       } else {
-        const formattedDate = `${form.date}T${form.time}:00Z`;
+        const formattedDate = buildUtcIso(form.date, form.time);
         const endpoint = createType === "TRAINING" ? "/api/calendar/training" : "/api/calendar/match";
         const body = createType === "TRAINING"
-          ? { teamId: Number(finalTeamId), startTime: formattedDate, endTime: form.endTime ? `${form.date}T${form.endTime}:00Z` : formattedDate, fieldId: fieldIdValue, location: locationValue, notes: form.notes }
+          ? { teamId: Number(finalTeamId), startTime: formattedDate, endTime: form.endTime ? buildUtcIso(form.date, form.endTime) : formattedDate, fieldId: fieldIdValue, location: locationValue, notes: form.notes }
           : { teamId: Number(finalTeamId), opponentName: form.opponentName, matchDate: formattedDate, fieldId: fieldIdValue, location: locationValue, isHome: form.isHome === "true", matchType: form.matchType };
         await apiFetch(`${endpoint}?clubId=${clubId}`, { method: "POST", body: JSON.stringify(body) });
       }
@@ -389,6 +416,162 @@ export default function Calendario() {
     }
   };
 
+  // ─── IMPORTAR CSV / JSON ──────────────────────────────────────────────────
+  const handleImportClick = () => {
+    if (isPresident) {
+      if (!teams.length) {
+        Alert.alert("Atención", "No hay equipos en el club.");
+        return;
+      }
+      setImportTeamModal(true);
+    } else {
+      if (!myTeamId) {
+        Alert.alert("Atención", "No tienes equipo asignado.");
+        return;
+      }
+      proceedWithImport(myTeamId);
+    }
+  };
+
+  const proceedWithImport = async (teamId: number) => {
+    try {
+      setIsImporting(true);
+      const result = await DocumentPicker.getDocumentAsync({
+        type: Platform.OS === "android" ? "*/*" : ["text/csv", "text/plain", "application/json"],
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled || !result.assets?.length) return;
+
+      const asset = result.assets[0];
+      let text: string;
+      if (Platform.OS === "web") {
+        text = await fetch(asset.uri).then((r) => r.text());
+      } else {
+        const FS = (await import("expo-file-system")) as any;
+        text = await FS.readAsStringAsync(asset.uri);
+      }
+
+      const isJson = asset.name?.toLowerCase().endsWith(".json");
+      let rows: any[];
+      if (isJson) {
+        const parsed = JSON.parse(text);
+        rows = Array.isArray(parsed) ? parsed : [parsed];
+      } else {
+        const { data } = Papa.parse<any>(text, { header: true, skipEmptyLines: true, dynamicTyping: true });
+        rows = data;
+      }
+
+      if (!rows.length) {
+        Alert.alert("Sin datos", "No se encontraron registros en el archivo.");
+        return;
+      }
+
+      // Reconstruye UTC desde dd/mm/yyyy + HH:MM (formato del export propio)
+      // Usa new Date(y, m, d, h, min) para crear el Date en hora local antes de llamar a .toISOString()
+      const buildIso = (fecha: string, hora: string): string => {
+        const parts = String(fecha).split("/");
+        let y: number, m: number, d: number;
+        if (parts.length === 3) {
+          [d, m, y] = parts.map(Number);
+        } else {
+          const iso = fecha.split("-").map(Number);
+          [y, m, d] = iso;
+        }
+        const [h, min] = (hora || "00:00").split(":").map(Number);
+        return new Date(y, m - 1, d, h, min, 0).toISOString();
+      };
+
+      // Mapa normalizado de campos del club para el enlace automático
+      const normalizedFields = clubFields.map((f) => ({
+        ...f,
+        _norm: f.name.trim().toLowerCase(),
+      }));
+
+      const candidatos: CalendarEvent[] = rows.map((row) => {
+        const startTime =
+          row.startTime ||
+          (row.Fecha ? buildIso(String(row.Fecha), row["Hora inicio"] || "00:00") : new Date().toISOString());
+
+        const endTime =
+          row.endTime ||
+          (row.Fecha && row["Hora fin"] ? buildIso(String(row.Fecha), row["Hora fin"]) : undefined);
+
+        const rawLocation: string | undefined = row.location || row.Ubicación || undefined;
+
+        // Smart linking: busca coincidencia normalizada con campos del club
+        let linkedFieldId: number | null = null;
+        if (rawLocation) {
+          const norm = rawLocation.trim().toLowerCase();
+          const matched = normalizedFields.find((f) => f._norm === norm);
+          if (matched) linkedFieldId = matched.id;
+        }
+
+        return {
+          id: -(Date.now() + Math.random()),
+          type: (row.type === "MATCH" || row.Tipo === "Partido") ? "MATCH" : "TRAINING",
+          startTime,
+          endTime,
+          title: row.title || row.Título || row.titulo || "Importado",
+          teamId,       // INYECTADO desde selección — ignoramos cualquier teamId del archivo
+          teamName: row.teamName || row.Equipo || "",
+          location: rawLocation,
+          fieldId: linkedFieldId,
+        };
+      });
+
+      const existingKeys = new Set(
+        events.map((e) => `${e.type}|${new Date(e.startTime).getTime()}`)
+      );
+      const nuevos = candidatos.filter(
+        (e) => !existingKeys.has(`${e.type}|${new Date(e.startTime).getTime()}`)
+      );
+      const partidosOmitidos = candidatos.length - nuevos.length;
+      const partidosAñadidos = nuevos.length;
+
+      if (partidosAñadidos === 0) {
+        Alert.alert("Sin novedades", "Todos los eventos del archivo ya estaban registrados.");
+        return;
+      }
+
+      setEvents((prev) => [...prev, ...nuevos]);
+      const linked = nuevos.filter((e) => e.fieldId).length;
+
+      let msg: string;
+      if (partidosOmitidos > 0 && linked > 0) {
+        msg = `Se han importado ${partidosAñadidos} partidos para el equipo seleccionado. Se omitieron ${partidosOmitidos} duplicados. ${linked} ubicación(es) enlazadas automáticamente.`;
+      } else if (partidosOmitidos > 0) {
+        msg = `Se han importado ${partidosAñadidos} partidos para el equipo seleccionado. Se omitieron ${partidosOmitidos} duplicados.`;
+      } else if (linked > 0) {
+        msg = `Se han importado ${partidosAñadidos} partidos para el equipo seleccionado. ${linked} ubicación(es) enlazadas automáticamente.`;
+      } else {
+        msg = `Se han importado ${partidosAñadidos} partidos para el equipo seleccionado.`;
+      }
+      Alert.alert("Importación Completada", msg);
+    } catch {
+      Alert.alert("Error de formato", "El archivo tiene un formato inválido o no se pudo leer.");
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  // ─── MAPA ─────────────────────────────────────────────────────────────────
+  const handleOpenMap = async (event: CalendarEvent) => {
+    let url: string | null = null;
+    if (event.fieldId) {
+      const field = clubFields.find((f) => f.id === event.fieldId);
+      if (field?.mapUrl) url = field.mapUrl;
+    }
+    if (!url && event.location) {
+      url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`;
+    }
+    if (!url) return;
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert("Error", "No se pudo abrir el mapa.");
+    }
+  };
+
   // ─── CUADRÍCULA ───────────────────────────────────────────────────────────
   const renderCalendarGrid = () => {
     const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -451,13 +634,30 @@ export default function Calendario() {
               <Text style={[styles.headerSub, { color: c.subtexto }]}>Temporada {currentSeasonLabel}</Text>
               <Text style={[styles.headerTitle, { color: c.texto }]}>Calendario</Text>
             </View>
-            <TouchableOpacity
-              style={[styles.exportBtn, { backgroundColor: c.input, borderColor: c.bordeInput }]}
-              onPress={() => setExportModal(true)}
-            >
-              <Text style={{ fontSize: 14 }}>📤</Text>
-              <Text style={{ fontSize: 12, color: c.subtexto, fontWeight: "600" }}>CSV</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              {canCreate && (
+                <TouchableOpacity
+                  style={[styles.exportBtn, { backgroundColor: c.input, borderColor: c.bordeInput }]}
+                  onPress={handleImportClick}
+                  disabled={isImporting}
+                >
+                  {isImporting
+                    ? <ActivityIndicator size="small" color={c.boton} />
+                    : <>
+                        <Text style={{ fontSize: 14 }}>📥</Text>
+                        <Text style={{ fontSize: 12, color: c.subtexto, fontWeight: "600" }}>Import</Text>
+                      </>
+                  }
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={[styles.exportBtn, { backgroundColor: c.input, borderColor: c.bordeInput }]}
+                onPress={() => setExportModal(true)}
+              >
+                <Text style={{ fontSize: 14 }}>📤</Text>
+                <Text style={{ fontSize: 12, color: c.subtexto, fontWeight: "600" }}>CSV</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
@@ -570,6 +770,37 @@ export default function Calendario() {
           </TouchableOpacity>
         )}
 
+        {/* ─── MODAL SELECCIÓN EQUIPO (IMPORT PRESIDENTE) ──────────────────── */}
+        <Modal visible={importTeamModal} transparent animationType="fade" onRequestClose={() => setImportTeamModal(false)}>
+          <View style={styles.centeredOverlay}>
+            <View style={[styles.centeredBox, { backgroundColor: c.fondo }]}>
+              <Text style={[styles.modalTitle, { color: c.texto }]}>¿A qué equipo van los eventos?</Text>
+              <Text style={[styles.metaText, { color: c.subtexto, marginBottom: 14 }]}>
+                Selecciona el equipo de destino para los eventos importados.
+              </Text>
+              <ScrollView style={{ maxHeight: 280 }} showsVerticalScrollIndicator={false}>
+                {teams.map((t) => (
+                  <TouchableOpacity
+                    key={t.id}
+                    style={[styles.chip, { backgroundColor: c.input, marginBottom: 10, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 12 }]}
+                    onPress={() => { setImportTeamModal(false); proceedWithImport(t.id); }}
+                  >
+                    <Text style={[styles.chipText, { color: c.texto, fontSize: 14 }]}>
+                      {t.category} {t.suffix}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <TouchableOpacity
+                style={[styles.btnCrear, { backgroundColor: c.input, borderWidth: 1, borderColor: c.bordeInput, marginTop: 12 }]}
+                onPress={() => setImportTeamModal(false)}
+              >
+                <Text style={[styles.btnCrearText, { color: c.texto }]}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
         {/* ─── MODAL EXPORTAR CSV ───────────────────────────────────────────── */}
         <Modal visible={exportModal} transparent animationType="fade">
           <View style={styles.centeredOverlay}>
@@ -637,17 +868,25 @@ export default function Calendario() {
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 5 }}>
                           <View style={[styles.dayEventBadge, { backgroundColor: `${accentColor}20` }]}>
                             <Text style={{ fontSize: 10, fontWeight: "700", color: accentColor }}>
-                              {item.type === "MATCH" ? "PARTIDO" : "ENTRENO"}
+                              {item.type === "MATCH"
+                                ? (MATCH_TYPE_DISPLAY[item.matchType ?? ""]?.badge ?? "PARTIDO")
+                                : "ENTRENO"}
                             </Text>
                           </View>
                         </View>
-                        <Text style={[styles.eventoTitulo, { color: c.texto, marginBottom: 6 }]}>{item.title}</Text>
+                        <Text style={[styles.eventoTitulo, { color: c.texto, marginBottom: 6 }]}>
+                          {item.type === "MATCH"
+                            ? `${MATCH_TYPE_DISPLAY[item.matchType ?? ""]?.icon ?? "⚽"} ${item.title}`
+                            : `🏃 ${item.title}`}
+                        </Text>
                         <Text style={[styles.metaText, { color: c.subtexto }]}>
                           🕒 {new Date(item.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                           {item.endTime ? ` – ${new Date(item.endTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
                         </Text>
                         {item.location && (
-                          <Text style={[styles.metaText, { color: c.subtexto, marginTop: 3 }]}>📍 {item.location}</Text>
+                          <TouchableOpacity onPress={() => handleOpenMap(item)} activeOpacity={0.7}>
+                            <Text style={[styles.metaText, { color: c.boton, marginTop: 3 }]}>📍 {item.location}</Text>
+                          </TouchableOpacity>
                         )}
                         {item.teamName && (
                           <Text style={[styles.metaText, { color: c.subtexto, marginTop: 3 }]}>👥 {item.teamName}</Text>

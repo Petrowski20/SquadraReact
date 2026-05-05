@@ -1,8 +1,11 @@
+import * as DocumentPicker from 'expo-document-picker'
 import { useFocusEffect } from 'expo-router'
+import Papa from 'papaparse'
 import { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Linking,
   Modal,
   Platform,
@@ -18,6 +21,9 @@ import { apiFetch } from '../../lib/api'
 import { useAuthStore } from '../../lib/store'
 import { useTheme } from '../../lib/useTheme'
 import ScreenContainer from '../../components/ScreenContainer'
+
+const DEFAULT_CAMPO_IMAGE =
+  'https://images.unsplash.com/photo-1459865264687-595d652de67e?q=80&w=500&auto=format&fit=crop'
 
 // Gestor: puede ver inactivos y gestionar. Espectador: solo ve activos + cómo llegar.
 const ROLES_GESTOR = ['PRESIDENT', 'COACH', 'STAFF']
@@ -40,10 +46,13 @@ export default function Campos() {
   const [loading, setLoading]     = useState(true)
   const [modalOpen, setModal]     = useState(false)
   const [saving, setSaving]       = useState(false)
+  const [isImporting, setIsImporting] = useState(false)
+  const [brokenImgs, setBrokenImgs] = useState<Set<any>>(new Set())
 
   const [nombre, setNombre]       = useState('')
   const [direccion, setDireccion] = useState('')
   const [mapsUrl, setMapsUrl]     = useState('')
+  const [photoUrl, setPhotoUrl]   = useState('')
 
   // ── CARGA ─────────────────────────────────────────────────────────────────
   const fetchCampos = useCallback(async () => {
@@ -78,6 +87,8 @@ export default function Campos() {
   // ── ACCIONES GESTOR ───────────────────────────────────────────────────────
   const toggleActivo = async (id: number) => {
     setCampos(prev => prev.map(f => f.id === id ? { ...f, isActive: !f.isActive } : f))
+    // Items importados localmente tienen ID negativo — no existen en backend
+    if (id < 0) return
     try {
       const res = await apiFetch(`/api/fields/${id}/toggle?clubId=${clubId}`, { method: 'PATCH' })
       if (!res.ok) throw new Error()
@@ -100,6 +111,12 @@ export default function Campos() {
     })
 
     if (!await confirmar()) return
+
+    // Items importados localmente tienen ID negativo — eliminar solo del estado
+    if (id < 0) {
+      setCampos(prev => prev.filter(f => f.id !== id))
+      return
+    }
 
     try {
       const res = await apiFetch(`/api/fields/${id}?clubId=${clubId}`, { method: 'DELETE' })
@@ -126,7 +143,7 @@ export default function Campos() {
 
       const res = await apiFetch(url, {
         method: 'POST',
-        body: JSON.stringify({ name: nombre, address: direccion, mapUrl: mapsUrl }),
+        body: JSON.stringify({ name: nombre, address: direccion, mapUrl: mapsUrl, photoUrl: photoUrl || null }),
       })
       if (res.ok) {
         const nuevoCampo = await res.json()
@@ -142,11 +159,98 @@ export default function Campos() {
     }
   }
 
+  const handleImportCampos = async () => {
+    try {
+      setIsImporting(true)
+      const result = await DocumentPicker.getDocumentAsync({
+        type: Platform.OS === 'android' ? '*/*' : ['text/csv', 'text/plain', 'application/json'],
+        copyToCacheDirectory: true,
+      })
+      if (result.canceled || !result.assets?.length) return
+
+      const asset = result.assets[0]
+      let text: string
+      if (Platform.OS === 'web') {
+        text = await fetch(asset.uri).then((r) => r.text())
+      } else {
+        const FS = (await import('expo-file-system')) as any
+        text = await FS.readAsStringAsync(asset.uri)
+      }
+
+      const isJson = asset.name?.toLowerCase().endsWith('.json')
+      let rows: any[]
+      if (isJson) {
+        const parsed = JSON.parse(text)
+        rows = Array.isArray(parsed) ? parsed : [parsed]
+      } else {
+        const { data } = Papa.parse<any>(text, { header: true, skipEmptyLines: true, dynamicTyping: true })
+        rows = data
+      }
+
+      if (!rows.length) {
+        Alert.alert('Sin datos', 'No se encontraron registros en el archivo.')
+        return
+      }
+
+      const validRows = rows.filter((row) => row.name || row.Nombre)
+      if (!validRows.length) {
+        Alert.alert('Error de formato', 'No se encontró la columna "name" o "Nombre" en el archivo.')
+        return
+      }
+
+      // club_id SIEMPRE del contexto — ignoramos cualquier clubId del archivo
+      const apiUrl = clubId
+        ? `/api/fields/club/${clubId}`
+        : `/api/fields/team/${activeTeamId}`
+
+      let camposAñadidos = 0
+      let camposOmitidos = 0
+      const savedCampos: any[] = []
+
+      for (const row of validRows) {
+        try {
+          const res = await apiFetch(apiUrl, {
+            method: 'POST',
+            body: JSON.stringify({
+              name: row.name || row.Nombre || '',
+              address: row.address || row.Dirección || row.Direccion || '',
+              mapUrl: row.mapUrl || row['Maps URL'] || row['URL Maps'] || null,
+              photoUrl: row.photoUrl || row['Photo URL'] || null,
+            }),
+          })
+          if (res.ok) {
+            savedCampos.push(await res.json())
+            camposAñadidos++
+          } else {
+            camposOmitidos++
+          }
+        } catch {
+          camposOmitidos++
+        }
+      }
+
+      if (camposAñadidos > 0) {
+        setCampos((prev) => [...prev, ...savedCampos])
+        const msg = camposOmitidos > 0
+          ? `Se han importado ${camposAñadidos} campos nuevos. Se han omitido ${camposOmitidos} por estar duplicados.`
+          : `Se han importado ${camposAñadidos} campos nuevos correctamente.`
+        Alert.alert('Importación Completada', msg)
+      } else {
+        Alert.alert('Error', 'No se pudo guardar ningún campo. Verifica el formato del archivo.')
+      }
+    } catch {
+      Alert.alert('Error de formato', 'El archivo tiene un formato inválido o no se pudo leer.')
+    } finally {
+      setIsImporting(false)
+    }
+  }
+
   const cerrarModal = () => {
     setModal(false)
     setNombre('')
     setDireccion('')
     setMapsUrl('')
+    setPhotoUrl('')
   }
 
   const activos   = campos.filter(f => f.isActive)
@@ -185,22 +289,24 @@ export default function Campos() {
                   key={campo.id}
                   style={[styles.campoCard, { backgroundColor: c.input, borderColor: c.bordeInput, borderLeftColor: c.boton }]}
                 >
-                  <View style={styles.campoIconRow}>
-                    <View style={[styles.campoIcon, { backgroundColor: `${c.boton}18`, borderColor: `${c.boton}35` }]}>
-                      <Text style={styles.campoIconText}>🏟</Text>
-                    </View>
+                  <Image
+                    source={{ uri: brokenImgs.has(campo.id) || !campo.photo_url ? DEFAULT_CAMPO_IMAGE : campo.photo_url }}
+                    style={styles.campoPhoto}
+                    resizeMode="cover"
+                    onError={() => setBrokenImgs(prev => new Set([...prev, campo.id]))}
+                  />
+                  <View style={styles.campoContent}>
                     <View style={styles.campoTexts}>
                       <Text style={[styles.campoNombre, { color: c.texto }]}>{campo.name}</Text>
                       <Text style={[styles.campoDireccion, { color: c.subtexto }]}>{campo.address}</Text>
                     </View>
+                    <TouchableOpacity
+                      style={[styles.btnComoLlegar, { backgroundColor: c.boton }]}
+                      onPress={() => abrirMaps(campo)}
+                    >
+                      <Text style={styles.btnComoLlegarText}>📍 Cómo llegar</Text>
+                    </TouchableOpacity>
                   </View>
-
-                  <TouchableOpacity
-                    style={[styles.btnComoLlegar, { backgroundColor: c.boton }]}
-                    onPress={() => abrirMaps(campo)}
-                  >
-                    <Text style={styles.btnComoLlegarText}>📍 Cómo llegar</Text>
-                  </TouchableOpacity>
                 </View>
               ))}
             </View>
@@ -221,12 +327,24 @@ export default function Campos() {
         <View style={styles.header}>
           <Text style={[styles.titulo, { color: c.texto }]}>📍 Campos</Text>
           {canCreate && (
-            <TouchableOpacity
-              style={[styles.addButton, { backgroundColor: c.boton }]}
-              onPress={() => setModal(true)}
-            >
-              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13 }}>+ Añadir campo</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity
+                style={[styles.addButton, { backgroundColor: c.input, borderWidth: 1, borderColor: c.bordeInput }]}
+                onPress={handleImportCampos}
+                disabled={isImporting}
+              >
+                {isImporting
+                  ? <ActivityIndicator size="small" color={c.boton} />
+                  : <Text style={{ color: c.boton, fontWeight: 'bold', fontSize: 13 }}>📥 Importar</Text>
+                }
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.addButton, { backgroundColor: c.boton }]}
+                onPress={() => setModal(true)}
+              >
+                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13 }}>+ Añadir campo</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
 
@@ -246,44 +364,41 @@ export default function Campos() {
                   key={campo.id}
                   style={[styles.campoCard, { backgroundColor: c.input, borderColor: c.bordeInput, borderLeftColor: c.boton }]}
                 >
-                  <View style={styles.campoIconRow}>
-                    <View style={[styles.campoIcon, { backgroundColor: `${c.boton}18`, borderColor: `${c.boton}35` }]}>
-                      <Text style={styles.campoIconText}>🏟</Text>
-                    </View>
+                  <Image
+                    source={{ uri: brokenImgs.has(campo.id) || !campo.photo_url ? DEFAULT_CAMPO_IMAGE : campo.photo_url }}
+                    style={styles.campoPhoto}
+                    resizeMode="cover"
+                    onError={() => setBrokenImgs(prev => new Set([...prev, campo.id]))}
+                  />
+                  <View style={styles.campoContent}>
                     <View style={styles.campoTexts}>
                       <Text style={[styles.campoNombre, { color: c.texto }]}>{campo.name}</Text>
                       <Text style={[styles.campoDireccion, { color: c.subtexto }]}>{campo.address}</Text>
                     </View>
-                  </View>
-
-                  <View style={styles.campoActions}>
-                    {/* Azul maps — sin equivalente semántico en el tema */}
-                    <TouchableOpacity
-                      style={[styles.actionButton, { backgroundColor: '#3b82f615', borderColor: '#3b82f630' }]}
-                      onPress={() => abrirMaps(campo)}
-                    >
-                      <Text style={[styles.actionButtonText, { color: '#3b82f6' }]}>🗺 Maps</Text>
-                    </TouchableOpacity>
-
-                    {canToggle && (
-                      /* Ámbar advertencia — sin equivalente semántico en el tema */
+                    <View style={styles.campoActions}>
                       <TouchableOpacity
-                        style={[styles.actionButton, { backgroundColor: '#f59e0b12', borderColor: '#f59e0b30' }]}
-                        onPress={() => toggleActivo(campo.id)}
+                        style={[styles.actionButton, { backgroundColor: '#3b82f615', borderColor: '#3b82f630' }]}
+                        onPress={() => abrirMaps(campo)}
                       >
-                        <Text style={[styles.actionButtonText, { color: '#f59e0b' }]}>Desactivar</Text>
+                        <Text style={[styles.actionButtonText, { color: '#3b82f6' }]}>🗺 Maps</Text>
                       </TouchableOpacity>
-                    )}
-
-                    {canDelete && (
-                      /* Rojo destructivo — sin equivalente semántico en el tema */
-                      <TouchableOpacity
-                        style={[styles.actionButton, { backgroundColor: '#ef444410', borderColor: '#ef444430' }]}
-                        onPress={() => eliminarCampo(campo.id)}
-                      >
-                        <Text style={[styles.actionButtonText, { color: '#ef4444' }]}>🗑 Eliminar</Text>
-                      </TouchableOpacity>
-                    )}
+                      {canToggle && (
+                        <TouchableOpacity
+                          style={[styles.actionButton, { backgroundColor: '#f59e0b12', borderColor: '#f59e0b30' }]}
+                          onPress={() => toggleActivo(campo.id)}
+                        >
+                          <Text style={[styles.actionButtonText, { color: '#f59e0b' }]}>Desactivar</Text>
+                        </TouchableOpacity>
+                      )}
+                      {canDelete && (
+                        <TouchableOpacity
+                          style={[styles.actionButton, { backgroundColor: '#ef444410', borderColor: '#ef444430' }]}
+                          onPress={() => eliminarCampo(campo.id)}
+                        >
+                          <Text style={[styles.actionButtonText, { color: '#ef4444' }]}>🗑 Eliminar</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
                 </View>
               ))}
@@ -376,6 +491,25 @@ export default function Campos() {
                   editable={!saving}
                 />
               </View>
+              <View>
+                <Text style={[styles.label, { color: c.subtexto }]}>Foto del campo <Text style={{ fontStyle: 'italic' }}>(URL, opcional)</Text></Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: c.input, borderColor: c.bordeInput, color: c.texto }]}
+                  value={photoUrl}
+                  onChangeText={setPhotoUrl}
+                  placeholder="https://..."
+                  placeholderTextColor={c.subtexto}
+                  autoCapitalize="none"
+                  editable={!saving}
+                />
+                {!!photoUrl && (
+                  <Image
+                    source={{ uri: photoUrl }}
+                    style={styles.photoPreview}
+                    resizeMode="cover"
+                  />
+                )}
+              </View>
               <TouchableOpacity
                 style={[styles.btnGuardar, { backgroundColor: saving ? c.bordeInput : c.boton }]}
                 onPress={guardarCampo}
@@ -409,13 +543,13 @@ const styles = StyleSheet.create({
   section: { marginBottom: 30 },
   sectionLabel: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 12 },
   list: { gap: 12 },
-  campoCard: { padding: 16, borderRadius: 18, borderWidth: 1, borderLeftWidth: 4, gap: 14 },
-  campoIconRow: { flexDirection: 'row', alignItems: 'center', gap: 15 },
-  campoIcon: { width: 48, height: 48, borderRadius: 14, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
-  campoIconText: { fontSize: 22 },
+  campoCard: { borderRadius: 18, borderWidth: 1, borderLeftWidth: 4, overflow: 'hidden' },
+  campoPhoto: { width: '100%', height: 140 },
+  campoContent: { padding: 14, gap: 12 },
   campoTexts: { flex: 1 },
   campoNombre: { fontSize: 16, fontWeight: 'bold', marginBottom: 2 },
   campoDireccion: { fontSize: 13, lineHeight: 18 },
+  photoPreview: { width: '100%', height: 100, borderRadius: 12, marginTop: 8 },
   campoActions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   actionButton: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, borderWidth: 1 },
   actionButtonText: { fontSize: 12, fontWeight: '700' },

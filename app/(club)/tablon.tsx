@@ -206,8 +206,8 @@ export default function Tablon() {
         contenido: nuevoContenido.trim(),
         isPinned: pinned,
       };
-      if (isCoach) body.teamId = activeTeamId;
-      else if (destinoEquipo !== null) body.teamId = destinoEquipo;
+      if (isCoach && activeTeamId) body.teamId = activeTeamId;
+      else if (!isCoach && destinoEquipo !== null) body.teamId = destinoEquipo;
 
       // 🟢 Ahora targetSeason siempre tendrá un valor (ej: "2025-2026")
       const res = await apiFetch(
