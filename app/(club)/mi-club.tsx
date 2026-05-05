@@ -59,6 +59,14 @@ const STAFF_ROL_LABEL: Record<string, string> = {
   OTHER:           "Otro",
 };
 
+function parseBirthDate(s: string | null | undefined): number {
+  if (!s) return NaN;
+  // Soporta DD/MM/YYYY y YYYY-MM-DD (u otros formatos aceptados por Date)
+  const ddmmyyyy = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (ddmmyyyy) return new Date(`${ddmmyyyy[3]}-${ddmmyyyy[2]}-${ddmmyyyy[1]}`).getTime();
+  return new Date(s).getTime();
+}
+
 /** Avatar reutilizable: muestra imagen si existe, o iniciales con color de fondo */
 function Avatar({
   photoUrl,
@@ -128,10 +136,25 @@ export default function MiClub() {
   const [playerStats, setPlayerStats] = useState<any>(null);
   const [loadingStats, setLoadingStats] = useState(false);
 
-  type PlayerSort = "POSITION" | "NAME" | "BIRTH_DATE";
-  type StaffSort  = "ROLE" | "NAME";
-  const [playerSort, setPlayerSort] = useState<PlayerSort>("POSITION");
-  const [staffSort,  setStaffSort]  = useState<StaffSort>("ROLE");
+  type PlayerSortKey = "POSITION" | "NAME" | "BIRTH_DATE";
+  type StaffSortKey  = "ROLE" | "NAME";
+  type SortDir = "asc" | "desc";
+  const [playerSort, setPlayerSort] = useState<{ key: PlayerSortKey; direction: SortDir }>({ key: "POSITION", direction: "asc" });
+  const [staffSort,  setStaffSort]  = useState<{ key: StaffSortKey;  direction: SortDir }>({ key: "ROLE",     direction: "asc" });
+
+  const handleSortPlayers = (key: PlayerSortKey) =>
+    setPlayerSort(prev =>
+      prev.key === key
+        ? { key, direction: prev.direction === "asc" ? "desc" : "asc" }
+        : { key, direction: "asc" }
+    );
+
+  const handleSortStaff = (key: StaffSortKey) =>
+    setStaffSort(prev =>
+      prev.key === key
+        ? { key, direction: prev.direction === "asc" ? "desc" : "asc" }
+        : { key, direction: "asc" }
+    );
 
   // ── CARGAR EQUIPOS ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -208,24 +231,34 @@ export default function MiClub() {
   const sortedPlantilla = useMemo(() => {
     const list: any[] = data?.plantilla ?? [];
     return [...list].sort((a, b) => {
-      if (playerSort === "POSITION") {
-        return (POSICION_ORDEN[a.position] ?? 99) - (POSICION_ORDEN[b.position] ?? 99);
+      let result = 0;
+      if (playerSort.key === "POSITION") {
+        result = (POSICION_ORDEN[a.position] ?? 99) - (POSICION_ORDEN[b.position] ?? 99);
+      } else if (playerSort.key === "NAME") {
+        result = `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+      } else {
+        // BIRTH_DATE — comparación cronológica real; fechas nulas siempre al final
+        const ta = parseBirthDate(a.birthDate);
+        const tb = parseBirthDate(b.birthDate);
+        if (isNaN(ta) && isNaN(tb)) return 0;
+        if (isNaN(ta)) return 1;
+        if (isNaN(tb)) return -1;
+        result = ta - tb;
       }
-      if (playerSort === "NAME") {
-        return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
-      }
-      // BIRTH_DATE — más joven primero (fecha más reciente = mayor string YYYY-MM-DD)
-      return (b.birthDate || "").localeCompare(a.birthDate || "");
+      return playerSort.direction === "desc" ? -result : result;
     });
   }, [data?.plantilla, playerSort]);
 
   const sortedStaff = useMemo(() => {
     const list: any[] = data?.staff ?? [];
     return [...list].sort((a, b) => {
-      if (staffSort === "ROLE") {
-        return (STAFF_ROL_ORDEN[a.staffRole] ?? 99) - (STAFF_ROL_ORDEN[b.staffRole] ?? 99);
+      let result = 0;
+      if (staffSort.key === "ROLE") {
+        result = (STAFF_ROL_ORDEN[a.staffRole] ?? 99) - (STAFF_ROL_ORDEN[b.staffRole] ?? 99);
+      } else {
+        result = `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
       }
-      return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+      return staffSort.direction === "desc" ? -result : result;
     });
   }, [data?.staff, staffSort]);
 
@@ -394,20 +427,23 @@ export default function MiClub() {
               🎽 Staff técnico
             </Text>
             <View style={styles.sortChipsRow}>
-              {([{ value: "ROLE" as const, label: "Rol" }, { value: "NAME" as const, label: "A-Z" }]).map(({ value, label }) => (
-                <TouchableOpacity
-                  key={value}
-                  style={[styles.sortChip, {
-                    backgroundColor: staffSort === value ? `${c.boton}20` : c.input,
-                    borderColor:     staffSort === value ? c.boton : c.bordeInput,
-                  }]}
-                  onPress={() => setStaffSort(value)}
-                >
-                  <Text style={[styles.sortChipText, { color: staffSort === value ? c.boton : c.subtexto }]}>
-                    {label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {([{ value: "ROLE" as const, label: "Rol" }, { value: "NAME" as const, label: "A-Z" }]).map(({ value, label }) => {
+                const active = staffSort.key === value;
+                return (
+                  <TouchableOpacity
+                    key={value}
+                    style={[styles.sortChip, {
+                      backgroundColor: active ? `${c.boton}20` : c.input,
+                      borderColor:     active ? c.boton : c.bordeInput,
+                    }]}
+                    onPress={() => handleSortStaff(value)}
+                  >
+                    <Text style={[styles.sortChipText, { color: active ? c.boton : c.subtexto }]}>
+                      {label}{active ? (staffSort.direction === "asc" ? " ↑" : " ↓") : ""}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
           {data.staff?.length > 0 ? (
@@ -465,20 +501,23 @@ export default function MiClub() {
                 { value: "POSITION"   as const, label: "Posición" },
                 { value: "NAME"       as const, label: "A-Z"      },
                 { value: "BIRTH_DATE" as const, label: "Edad"     },
-              ]).map(({ value, label }) => (
-                <TouchableOpacity
-                  key={value}
-                  style={[styles.sortChip, {
-                    backgroundColor: playerSort === value ? `${c.boton}20` : c.input,
-                    borderColor:     playerSort === value ? c.boton : c.bordeInput,
-                  }]}
-                  onPress={() => setPlayerSort(value)}
-                >
-                  <Text style={[styles.sortChipText, { color: playerSort === value ? c.boton : c.subtexto }]}>
-                    {label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              ]).map(({ value, label }) => {
+                const active = playerSort.key === value;
+                return (
+                  <TouchableOpacity
+                    key={value}
+                    style={[styles.sortChip, {
+                      backgroundColor: active ? `${c.boton}20` : c.input,
+                      borderColor:     active ? c.boton : c.bordeInput,
+                    }]}
+                    onPress={() => handleSortPlayers(value)}
+                  >
+                    <Text style={[styles.sortChipText, { color: active ? c.boton : c.subtexto }]}>
+                      {label}{active ? (playerSort.direction === "asc" ? " ↑" : " ↓") : ""}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
           {data.plantilla?.length > 0 ? (

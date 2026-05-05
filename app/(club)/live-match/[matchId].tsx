@@ -24,6 +24,12 @@ import { useTheme } from "../../../lib/useTheme";
 type MatchMode = "LIVE" | "EDIT";
 type Step = "callups" | "stats";
 
+interface MatchEvent {
+  playerId: number;
+  type: "SUB_IN" | "SUB_OUT" | "RED_CARD";
+  minute: number;
+}
+
 interface CallupEntry {
   playerId: number;
   firstName: string;
@@ -55,12 +61,56 @@ const STAT_FIELDS: { label: string; field: keyof StatsEntry }[] = [
   { label: "Minutos", field: "minutesPlayed" },
 ];
 
-// Formats raw seconds → "MM:SS"
 const formatTime = (total: number) => {
   const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  const sec = total % 60;
+  return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
 };
+
+// ─── Position helpers (module-level, pure) ────────────────────────────────────
+
+const POSITION_MAP: Record<string, string> = {
+  POR: "Porteros", GK: "Porteros", PORTERO: "Porteros",
+  DEF: "Defensas", CB: "Defensas", LB: "Defensas", RB: "Defensas",
+  WB: "Defensas", DEFENSA: "Defensas",
+  MED: "Centrocampistas", CM: "Centrocampistas", MC: "Centrocampistas",
+  CAM: "Centrocampistas", CDM: "Centrocampistas", CENTROCAMPISTA: "Centrocampistas",
+  MEDIOCAMPISTA: "Centrocampistas",
+  DEL: "Delanteros", FW: "Delanteros", ST: "Delanteros", CF: "Delanteros",
+  LW: "Delanteros", RW: "Delanteros", DELANTERO: "Delanteros", ATACANTE: "Delanteros",
+};
+
+const POSITION_ORDER = ["Porteros", "Defensas", "Centrocampistas", "Delanteros", "Otros"];
+
+function groupByPosition(players: StatsEntry[]): Record<string, StatsEntry[]> {
+  return players.reduce(
+    (acc, player) => {
+      const raw = (player.position ?? "").toUpperCase();
+      const group = POSITION_MAP[raw] ?? "Otros";
+      return { ...acc, [group]: [...(acc[group] ?? []), player] };
+    },
+    {} as Record<string, StatsEntry[]>,
+  );
+}
+
+function getPlayerStatus(
+  playerId: number,
+  wasStarter: boolean,
+  events: MatchEvent[],
+): { isCurrentlyPlaying: boolean; isBench: boolean; isSubbedOut: boolean } {
+  const playerEvents = events.filter((e) => e.playerId === playerId);
+  if (playerEvents.length === 0) {
+    return { isCurrentlyPlaying: wasStarter, isBench: !wasStarter, isSubbedOut: false };
+  }
+  const lastEvent = playerEvents[playerEvents.length - 1];
+  const isCurrentlyPlaying = lastEvent.type === "SUB_IN";
+  const hasEverPlayed = wasStarter || playerEvents.some((e) => e.type === "SUB_IN");
+  return {
+    isCurrentlyPlaying,
+    isBench: !hasEverPlayed,
+    isSubbedOut: hasEverPlayed && !isCurrentlyPlaying,
+  };
+}
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -76,7 +126,6 @@ export default function MatchScreen() {
   const matchMode: MatchMode = mode === "EDIT" ? "EDIT" : "LIVE";
   const isLive = matchMode === "LIVE";
 
-  // In EDIT mode we skip the callups step entirely
   const [step, setStep] = useState<Step>(isLive ? "callups" : "stats");
 
   // Data
@@ -85,14 +134,21 @@ export default function MatchScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // Stopwatch — only meaningful in LIVE mode
+  // Stopwatch
   const [seconds, setSeconds] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
 
-  // Close-match modal — only shown in LIVE mode
+  // Close-match modal
   const [closeModal, setCloseModal] = useState(false);
   const [goalsFor, setGoalsFor] = useState("");
   const [goalsAgainst, setGoalsAgainst] = useState("");
+
+  // Match events — substitutions during LIVE mode
+  const [matchEvents, setMatchEvents] = useState<MatchEvent[]>([]);
+
+  // Substitution picker modal
+  const [subModalVisible, setSubModalVisible] = useState(false);
+  const [playerToSubOut, setPlayerToSubOut] = useState<StatsEntry | null>(null);
 
   // ── Stopwatch effect ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -102,9 +158,6 @@ export default function MatchScreen() {
   }, [isRunning]);
 
   // ── Data fetching ─────────────────────────────────────────────────────────
-  // Fetch callups (to get CALLED_UP set) and stats in parallel.
-  // The /stats endpoint returns ALL active players when no stats exist yet,
-  // so we cross-reference with the callups to filter correctly.
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -123,8 +176,8 @@ export default function MatchScreen() {
 
       const calledUp = new Set<number>(
         callupsData
-          .filter((c) => c.status === "CALLED_UP")
-          .map((c) => c.playerId),
+          .filter((entry) => entry.status === "CALLED_UP")
+          .map((entry) => entry.playerId),
       );
 
       setCalledUpIds(calledUp);
@@ -136,12 +189,21 @@ export default function MatchScreen() {
     }
   }, [matchId, clubId]);
 
+  // Reset all transient match state when navigating to a different match
+  useEffect(() => {
+    setMatchEvents([]);
+    setSeconds(0);
+    setIsRunning(false);
+    setStep(isLive ? "callups" : "stats");
+    setStats([]);
+    setCalledUpIds(new Set());
+  }, [matchId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Only CALLED_UP players are shown anywhere in this screen
-  const visibleStats = stats.filter((s) => calledUpIds.has(s.playerId));
+  const visibleStats = stats.filter((p) => calledUpIds.has(p.playerId));
 
   // ── Stat mutation ─────────────────────────────────────────────────────────
   const updateStat = (
@@ -150,19 +212,100 @@ export default function MatchScreen() {
     value: number | boolean | string,
   ) => {
     setStats((prev) =>
-      prev.map((s) => (s.playerId === playerId ? { ...s, [field]: value } : s)),
+      prev.map((p) => (p.playerId === playerId ? { ...p, [field]: value } : p)),
     );
+  };
+
+  // ── Status helper (closes over matchEvents) ───────────────────────────────
+  const getStatus = (playerId: number, wasStarter: boolean) =>
+    getPlayerStatus(playerId, wasStarter, matchEvents);
+
+  // ── Minute calculation ────────────────────────────────────────────────────
+  const calculateMinutes = (playerId: number, wasStarter: boolean): number => {
+    const currentMinute = Math.floor(seconds / 60);
+    const events = matchEvents
+      .filter((e) => e.playerId === playerId)
+      .sort((a, b) => a.minute - b.minute);
+
+    if (events.length === 0) return wasStarter ? currentMinute : 0;
+
+    let total = 0;
+    let entryMinute: number | null = wasStarter ? 0 : null;
+
+    for (const event of events) {
+      if (event.type === "SUB_IN") {
+        entryMinute = event.minute;
+      } else if (event.type === "SUB_OUT" && entryMinute !== null) {
+        total += event.minute - entryMinute;
+        entryMinute = null;
+      }
+    }
+
+    if (entryMinute !== null) total += currentMinute - entryMinute;
+    return total;
+  };
+
+  // ── Substitution handlers ─────────────────────────────────────────────────
+  const handleOpenSubModal = (player: StatsEntry) => {
+    setPlayerToSubOut(player);
+    setSubModalVisible(true);
+  };
+
+  const handleConfirmSub = (benchPlayer: StatsEntry) => {
+    if (!playerToSubOut) return;
+    const currentMinute = Math.floor(seconds / 60);
+    if (playerToSubOut.assignedPosition) {
+      updateStat(benchPlayer.playerId, "assignedPosition", playerToSubOut.assignedPosition);
+    }
+    setMatchEvents((prev) => [
+      ...prev,
+      { playerId: playerToSubOut.playerId, type: "SUB_OUT", minute: currentMinute },
+      { playerId: benchPlayer.playerId, type: "SUB_IN", minute: currentMinute },
+    ]);
+    setSubModalVisible(false);
+    setPlayerToSubOut(null);
+  };
+
+  // ── Card handlers (LIVE only) ─────────────────────────────────────────────
+  const handleRedCard = (player: StatsEntry) => {
+    const currentMinute = Math.floor(seconds / 60);
+    updateStat(player.playerId, "redCards", player.redCards + 1);
+    setMatchEvents((prev) => [
+      ...prev,
+      { playerId: player.playerId, type: "RED_CARD", minute: currentMinute },
+    ]);
+  };
+
+  const handleYellowCard = (player: StatsEntry) => {
+    const newYellowCount = player.yellowCards + 1;
+    updateStat(player.playerId, "yellowCards", newYellowCount);
+
+    if (isLive && newYellowCount === 2) {
+      handleRedCard(player);
+      const currentMinute = Math.floor(seconds / 60);
+      Alert.alert(
+        "Doble Amarilla",
+        `El jugador ha recibido la segunda amarilla y ha sido expulsado en el min ${currentMinute}.`,
+      );
+    }
   };
 
   // ── Save stats ────────────────────────────────────────────────────────────
   const handleSave = async () => {
     setSaving(true);
     try {
+      const entriesToSave = isLive
+        ? visibleStats.map((p) => ({
+            ...p,
+            minutesPlayed: calculateMinutes(p.playerId, p.wasStarter),
+          }))
+        : visibleStats;
+
       const res = await apiFetch(
         `/api/coach/match/${matchId}/stats/bulk?clubId=${clubId}`,
         {
           method: "PUT",
-          body: JSON.stringify({ entries: visibleStats }),
+          body: JSON.stringify({ entries: entriesToSave }),
         },
       );
       if (!res.ok) {
@@ -195,10 +338,7 @@ export default function MatchScreen() {
         },
       );
       if (!res.ok) {
-        Alert.alert(
-          "Error",
-          `No se pudo cerrar el partido (HTTP ${res.status}).`,
-        );
+        Alert.alert("Error", `No se pudo cerrar el partido (HTTP ${res.status}).`);
         return;
       }
       setCloseModal(false);
@@ -208,6 +348,41 @@ export default function MatchScreen() {
     } catch {
       Alert.alert("Error", "Error de red al cerrar el partido.");
     }
+  };
+
+  // ── Reset match ───────────────────────────────────────────────────────────
+  const applyReset = () => {
+    setMatchEvents([]);
+    setSeconds(0);
+    setIsRunning(false);
+    setStep("callups");
+    setStats((prev) =>
+      prev.map((p) => ({
+        ...p,
+        goals: 0,
+        assists: 0,
+        yellowCards: 0,
+        redCards: 0,
+        minutesPlayed: 0,
+        wasStarter: false,
+        assignedPosition: undefined,
+      })),
+    );
+  };
+
+  const handleResetMatch = () => {
+    Alert.alert(
+      "¿Estás seguro?",
+      "Esto borrará los titulares, el cronómetro y todos los eventos registrados hasta ahora.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Resetear",
+          style: "destructive",
+          onPress: applyReset,
+        },
+      ],
+    );
   };
 
   // ── Render helpers ────────────────────────────────────────────────────────
@@ -234,7 +409,6 @@ export default function MatchScreen() {
         </View>
       </View>
 
-      {/* "Cerrar Partido" only makes sense in live stats step */}
       {isLive && step === "stats" ? (
         <TouchableOpacity
           style={[s.closeMatchBtn, { backgroundColor: "#ef4444" }]}
@@ -242,13 +416,19 @@ export default function MatchScreen() {
         >
           <Text style={s.closeMatchText}>Cerrar{"\n"}Partido</Text>
         </TouchableOpacity>
+      ) : isLive ? (
+        <TouchableOpacity
+          style={[s.closeMatchBtn, { backgroundColor: "#6b7280" }]}
+          onPress={handleResetMatch}
+        >
+          <Text style={s.closeMatchText}>🔄{"\n"}Reset</Text>
+        </TouchableOpacity>
       ) : (
         <View style={{ width: 64 }} />
       )}
     </View>
   );
 
-  // Progress indicator — only in LIVE mode
   const renderStepIndicator = () => {
     if (!isLive) return null;
     const atStats = step === "stats";
@@ -297,11 +477,11 @@ export default function MatchScreen() {
     );
   };
 
-  // Step 1 — Starters selection (LIVE mode only)
+  // ── Step 1 — Tappable starter selection grouped by position ───────────────
   const renderCallupsStep = () => {
-    // Calculamos cuántos titulares hay seleccionados
-    const startersCount = visibleStats.filter((s) => s.wasStarter).length;
+    const startersCount = visibleStats.filter((p) => p.wasStarter).length;
     const isMaxStarters = startersCount >= 11;
+    const grouped = groupByPosition(visibleStats);
 
     return (
       <ScrollView
@@ -309,10 +489,9 @@ export default function MatchScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Text style={[s.hint, { color: c.subtexto }]}>
-          Marca quién es titular hoy. Solo aparecen los jugadores convocados.
+          Pulsa la tarjeta de un jugador para marcarlo como titular.
         </Text>
 
-        {/* CONTADOR DE TITULARES DESTACADO */}
         <View
           style={[
             s.counterBox,
@@ -326,7 +505,7 @@ export default function MatchScreen() {
               color: isMaxStarters ? "#16a34a" : c.texto,
             }}
           >
-            Titulares Seleccionados: {startersCount} / 11
+            Titulares: {startersCount} / 11
           </Text>
         </View>
 
@@ -339,84 +518,122 @@ export default function MatchScreen() {
           </View>
         )}
 
-        {visibleStats.map((item) => (
-          <View
-            key={item.playerId}
-            style={[s.callupsCard, { backgroundColor: c.input }]}
-          >
-            {/* Fila superior: Nombre + Switch */}
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                width: "100%",
-              }}
-            >
-              <View
-                style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
-              >
-                <Text style={[s.playerName, { color: c.texto }]}>
-                  {item.firstName} {item.lastName}
-                </Text>
-                {/* Píldora de Posición Natural */}
-                <View style={s.naturalPosBadge}>
-                  <Text style={s.naturalPosText}>{item.position || "N/A"}</Text>
-                </View>
-              </View>
-
-              <View
-                style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
-              >
-                <Text style={{ fontSize: 13, color: c.subtexto }}>Titular</Text>
-                <Switch
-                  value={item.wasStarter}
-                  onValueChange={(v) =>
-                    updateStat(item.playerId, "wasStarter", v)
-                  }
-                  disabled={!item.wasStarter && isMaxStarters} // BLOQUEA SI YA HAY 11
-                  trackColor={{ false: c.bordeInput, true: "#16a34a" }}
-                  thumbColor="#fff"
-                />
-              </View>
-            </View>
-
-            {/* Fila inferior: Selector de Posición (Solo si es titular) */}
-            {item.wasStarter && (
-              <View style={s.positionSelector}>
-                {["POR", "DEF", "MED", "DEL"].map((pos) => {
-                  const isSelected = item.assignedPosition === pos;
-                  return (
-                    <TouchableOpacity
-                      key={pos}
-                      style={[
-                        s.posBtn,
-                        isSelected
-                          ? {
-                              backgroundColor: "#3b82f6",
-                              borderColor: "#3b82f6",
-                            }
-                          : { borderColor: c.bordeInput },
-                      ]}
-                      onPress={() =>
-                        updateStat(item.playerId, "assignedPosition", pos)
-                      }
+        {POSITION_ORDER.map((group) => {
+          const players = grouped[group];
+          if (!players || players.length === 0) return null;
+          return (
+            <View key={group}>
+              <Text style={[s.groupTitle, { color: c.subtexto }]}>
+                {group.toUpperCase()}
+              </Text>
+              {players.map((item) => {
+                const isStarter = item.wasStarter;
+                const isDisabled = !isStarter && isMaxStarters;
+                return (
+                  <TouchableOpacity
+                    key={item.playerId}
+                    activeOpacity={isDisabled ? 1 : 0.72}
+                    onPress={() => {
+                      if (isDisabled) return;
+                      updateStat(item.playerId, "wasStarter", !item.wasStarter);
+                    }}
+                    style={[
+                      s.callupsCard,
+                      {
+                        backgroundColor: isStarter ? "#16a34a15" : c.input,
+                        borderWidth: 2,
+                        borderColor: isStarter ? "#16a34a" : "transparent",
+                        opacity: isDisabled ? 0.4 : 1,
+                      },
+                    ]}
+                  >
+                    {/* Row: name + badge */}
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                      }}
                     >
-                      <Text
+                      <View
+                        style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
+                      >
+                        <Text
+                          style={[
+                            s.playerName,
+                            {
+                              color: isStarter ? "#16a34a" : c.texto,
+                              fontWeight: isStarter ? "800" : "600",
+                            },
+                          ]}
+                        >
+                          {item.firstName} {item.lastName}
+                        </Text>
+                        {item.position ? (
+                          <View style={s.naturalPosBadge}>
+                            <Text style={s.naturalPosText}>{item.position}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+
+                      <View
                         style={[
-                          s.posBtnText,
-                          { color: isSelected ? "#fff" : c.subtexto },
+                          s.starterBadge,
+                          {
+                            backgroundColor: isStarter ? "#16a34a" : "transparent",
+                            borderColor: isStarter ? "#16a34a" : c.bordeInput,
+                          },
                         ]}
                       >
-                        {pos}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            )}
-          </View>
-        ))}
+                        <Text
+                          style={{
+                            fontSize: 11,
+                            fontWeight: "700",
+                            color: isStarter ? "#fff" : c.subtexto,
+                          }}
+                        >
+                          {isStarter ? "✓ TITULAR" : "SUPLENTE"}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Position selector — only visible for starters */}
+                    {isStarter && (
+                      <View style={s.positionSelector}>
+                        {["POR", "DEF", "MED", "DEL"].map((pos) => {
+                          const isSelected = item.assignedPosition === pos;
+                          return (
+                            <TouchableOpacity
+                              key={pos}
+                              style={[
+                                s.posBtn,
+                                isSelected
+                                  ? { backgroundColor: "#3b82f6", borderColor: "#3b82f6" }
+                                  : { borderColor: c.bordeInput },
+                              ]}
+                              onPress={() =>
+                                updateStat(item.playerId, "assignedPosition", pos)
+                              }
+                            >
+                              <Text
+                                style={[
+                                  s.posBtnText,
+                                  { color: isSelected ? "#fff" : c.subtexto },
+                                ]}
+                              >
+                                {pos}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          );
+        })}
 
         <TouchableOpacity
           style={[
@@ -444,7 +661,7 @@ export default function MatchScreen() {
     );
   };
 
-  // Stopwatch widget — only rendered inside LIVE stats step
+  // ── Stopwatch widget ──────────────────────────────────────────────────────
   const renderStopwatch = () => (
     <View style={[s.stopwatch, { backgroundColor: c.input }]}>
       <Text style={[s.stopwatchTime, { color: c.texto }]}>
@@ -459,11 +676,7 @@ export default function MatchScreen() {
           onPress={() => setIsRunning((r) => !r)}
         >
           <Text style={s.swBtnText}>
-            {isRunning
-              ? "⏸ Pausar"
-              : seconds === 0
-                ? "▶ Iniciar"
-                : "▶ Reanudar"}
+            {isRunning ? "⏸ Pausar" : seconds === 0 ? "▶ Iniciar" : "▶ Reanudar"}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -479,122 +692,426 @@ export default function MatchScreen() {
     </View>
   );
 
-  // Step 2 — Stats counters (both modes)
-  const renderStatsStep = () => (
-    <ScrollView
-      contentContainerStyle={s.list}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Stopwatch is exclusive to LIVE mode */}
-      {isLive && renderStopwatch()}
+  // ── Live card — full actions, shown only for players on the field ──────────
+  const renderLiveCard = (item: StatsEntry) => (
+    <View key={item.playerId} style={[s.statsCard, { backgroundColor: c.input }]}>
+      <View style={s.playerHeader}>
+        <View style={{ flex: 1 }}>
+          <Text style={[s.playerName, { color: c.texto }]}>
+            {item.firstName} {item.lastName}
+          </Text>
+          {(item.assignedPosition ?? item.position) ? (
+            <Text style={[s.positionTag, { color: c.subtexto }]}>
+              {item.assignedPosition ?? item.position}
+            </Text>
+          ) : null}
+        </View>
+      </View>
 
-      {visibleStats.length === 0 && (
-        <View style={s.empty}>
-          <Text style={{ fontSize: 28 }}>📋</Text>
-          <Text style={{ color: c.subtexto, marginTop: 8 }}>
-            No hay jugadores convocados.
+      <View style={s.quickActionsRow}>
+        <TouchableOpacity
+          style={[s.quickActionBtn, { backgroundColor: "#16a34a" }]}
+          onPress={() => updateStat(item.playerId, "goals", item.goals + 1)}
+        >
+          <Text style={s.quickActionText}>⚽ {item.goals}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[s.quickActionBtn, { backgroundColor: "#3b82f6" }]}
+          onPress={() => updateStat(item.playerId, "assists", item.assists + 1)}
+        >
+          <Text style={s.quickActionText}>🎯 {item.assists}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[s.quickActionBtn, { backgroundColor: "#f59e0b" }]}
+          onPress={() => handleYellowCard(item)}
+        >
+          <Text style={s.quickActionText}>🟨 {item.yellowCards}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[s.quickActionBtn, { backgroundColor: "#ef4444" }]}
+          onPress={() => handleRedCard(item)}
+        >
+          <Text style={s.quickActionText}>🟥 {item.redCards}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[s.quickActionBtn, { backgroundColor: "#6b7280" }]}
+          onPress={() => handleOpenSubModal(item)}
+        >
+          <Text style={s.quickActionText}>🔄</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  // ── Bench card — available but not yet playing ────────────────────────────
+  const renderBenchCard = (item: StatsEntry) => (
+    <View
+      key={item.playerId}
+      style={[s.benchCard, { backgroundColor: c.input }]}
+    >
+      <Text style={[s.playerName, { color: c.texto }]}>
+        {item.firstName} {item.lastName}
+      </Text>
+      {(item.assignedPosition ?? item.position) ? (
+        <Text style={[s.positionTag, { color: c.subtexto }]}>
+          {item.assignedPosition ?? item.position}
+        </Text>
+      ) : null}
+    </View>
+  );
+
+  // ── Subbed-out card — burned, cannot return ───────────────────────────────
+  const renderSubbedOutCard = (item: StatsEntry) => (
+    <View
+      key={item.playerId}
+      style={[s.benchCard, { backgroundColor: c.input, opacity: 0.45 }]}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <View style={{ flex: 1 }}>
+          <Text style={[s.playerName, { color: c.subtexto }]}>
+            {item.firstName} {item.lastName}
+          </Text>
+          {(item.assignedPosition ?? item.position) ? (
+            <Text style={[s.positionTag, { color: c.subtexto }]}>
+              {item.assignedPosition ?? item.position}
+            </Text>
+          ) : null}
+        </View>
+        <View style={s.subbedOutBadge}>
+          <Text style={{ fontSize: 10, fontWeight: "700", color: "#6b7280" }}>
+            ↩ SALIÓ
           </Text>
         </View>
-      )}
+      </View>
+    </View>
+  );
 
-      {visibleStats.map((item) => (
-        <View
-          key={item.playerId}
-          style={[s.statsCard, { backgroundColor: c.input }]}
-        >
-          {/* Player name + Titular switch */}
-          <View style={s.playerHeader}>
-            <Text style={[s.playerName, { color: c.texto, flex: 1 }]}>
-              {item.firstName} {item.lastName}
+  // ── Expelled card — red card issued, removed from field ──────────────────
+  const renderExpelledCard = (item: StatsEntry) => (
+    <View
+      key={item.playerId}
+      style={[
+        s.benchCard,
+        { backgroundColor: "#ef444410", borderWidth: 1, borderColor: "#ef444430" },
+      ]}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <View style={{ flex: 1 }}>
+          <Text style={[s.playerName, { color: "#ef4444" }]}>
+            {item.firstName} {item.lastName}
+          </Text>
+          {(item.assignedPosition ?? item.position) ? (
+            <Text style={[s.positionTag, { color: "#ef4444", opacity: 0.7 }]}>
+              {item.assignedPosition ?? item.position}
             </Text>
-            <View
-              style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
-            >
-              <Text style={{ fontSize: 12, color: c.subtexto }}>Titular</Text>
-              <Switch
-                value={item.wasStarter}
-                onValueChange={(v) =>
-                  updateStat(item.playerId, "wasStarter", v)
-                }
-                trackColor={{ false: c.bordeInput, true: "#16a34a" }}
-                thumbColor="#fff"
-              />
-            </View>
-          </View>
+          ) : null}
+        </View>
+        <View style={[s.subbedOutBadge, { backgroundColor: "#ef444420" }]}>
+          <Text style={{ fontSize: 10, fontWeight: "700", color: "#ef4444" }}>
+            🟥 EXPULSADO
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
 
-          {/* Stat counters */}
-          <View style={s.countersRow}>
-            {STAT_FIELDS.map(({ label, field }) => (
-              <View key={field} style={s.counter}>
-                <Text
-                  style={{ fontSize: 10, color: c.subtexto, marginBottom: 4 }}
-                >
-                  {label}
+  // ── Substitution picker modal ─────────────────────────────────────────────
+  const renderSubModal = () => {
+    const benchPlayers = visibleStats.filter(
+      (p) => getStatus(p.playerId, p.wasStarter).isBench,
+    );
+
+    return (
+      <Modal visible={subModalVisible} transparent animationType="slide">
+        <View style={s.modalOverlay}>
+          <View
+            style={[
+              s.modalBox,
+              { backgroundColor: c.fondo, borderColor: c.bordeInput },
+            ]}
+          >
+            <Text style={[s.modalTitle, { color: c.texto }]}>
+              Elegir sustituto
+            </Text>
+            {playerToSubOut && (
+              <Text style={{ color: c.subtexto, marginBottom: 12, fontSize: 13 }}>
+                Sustituyendo a:{" "}
+                <Text style={{ fontWeight: "700", color: c.texto }}>
+                  {playerToSubOut.firstName} {playerToSubOut.lastName}
                 </Text>
-                <View
-                  style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+              </Text>
+            )}
+            <ScrollView style={{ maxHeight: 360 }} showsVerticalScrollIndicator={false}>
+              {benchPlayers.length === 0 ? (
+                <Text
+                  style={{
+                    color: c.subtexto,
+                    textAlign: "center",
+                    paddingVertical: 24,
+                  }}
                 >
+                  No hay jugadores disponibles en el banquillo.
+                </Text>
+              ) : (
+                benchPlayers.map((player) => (
                   <TouchableOpacity
-                    style={[
-                      s.counterBtn,
-                      { borderColor: c.bordeInput, backgroundColor: c.fondo },
-                    ]}
-                    onPress={() =>
-                      updateStat(
-                        item.playerId,
-                        field,
-                        Math.max(0, (item[field] as number) - 1),
-                      )
-                    }
+                    key={player.playerId}
+                    style={[s.subPickerRow, { borderBottomColor: c.bordeInput }]}
+                    onPress={() => handleConfirmSub(player)}
                   >
-                    <Text style={{ color: c.texto, fontWeight: "700" }}>−</Text>
+                    <Text style={[s.playerName, { color: c.texto, flex: 1 }]}>
+                      {player.firstName} {player.lastName}
+                    </Text>
+                    {(player.assignedPosition ?? player.position) ? (
+                      <View style={s.naturalPosBadge}>
+                        <Text style={s.naturalPosText}>
+                          {player.assignedPosition ?? player.position}
+                        </Text>
+                      </View>
+                    ) : null}
                   </TouchableOpacity>
-                  <Text
-                    style={{
-                      minWidth: 22,
-                      textAlign: "center",
-                      color: c.texto,
-                      fontWeight: "700",
-                    }}
-                  >
-                    {item[field] as number}
-                  </Text>
-                  <TouchableOpacity
-                    style={[
-                      s.counterBtn,
-                      { borderColor: c.bordeInput, backgroundColor: c.fondo },
-                    ]}
-                    onPress={() =>
-                      updateStat(
-                        item.playerId,
-                        field,
-                        (item[field] as number) + 1,
-                      )
-                    }
-                  >
-                    <Text style={{ color: c.texto, fontWeight: "700" }}>+</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
+                ))
+              )}
+            </ScrollView>
+            <TouchableOpacity
+              style={s.cancelBtn}
+              onPress={() => {
+                setSubModalVisible(false);
+                setPlayerToSubOut(null);
+              }}
+            >
+              <Text style={{ color: c.subtexto, fontWeight: "600" }}>Cancelar</Text>
+            </TouchableOpacity>
           </View>
         </View>
-      ))}
+      </Modal>
+    );
+  };
 
-      <TouchableOpacity
-        style={[
-          s.primaryBtn,
-          { backgroundColor: c.boton, opacity: saving ? 0.6 : 1, marginTop: 8 },
-        ]}
-        onPress={handleSave}
-        disabled={saving}
+  // ── Step 2 — Stats (LIVE + EDIT) ──────────────────────────────────────────
+  const renderStatsStep = () => {
+    // ── LIVE mode: four sections — field / bench / substituted / expelled ─────
+    if (isLive) {
+      const onField: StatsEntry[] = [];
+      const bench: StatsEntry[] = [];
+      const substituted: StatsEntry[] = [];
+      const expelled: StatsEntry[] = [];
+
+      for (const p of visibleStats) {
+        const hasRedCard = matchEvents.some(
+          (e) => e.playerId === p.playerId && e.type === "RED_CARD",
+        );
+        if (hasRedCard) {
+          expelled.push(p);
+          continue;
+        }
+        const { isCurrentlyPlaying, isBench, isSubbedOut } = getStatus(
+          p.playerId,
+          p.wasStarter,
+        );
+        if (isCurrentlyPlaying) onField.push(p);
+        else if (isBench) bench.push(p);
+        else if (isSubbedOut) substituted.push(p);
+      }
+
+      return (
+        <ScrollView
+          contentContainerStyle={s.list}
+          showsVerticalScrollIndicator={false}
+        >
+          {renderStopwatch()}
+
+          <Text style={[s.sectionTitle, { color: c.texto }]}>
+            🟢 En el campo ({onField.length})
+          </Text>
+          {onField.length === 0 ? (
+            <Text
+              style={{ color: c.subtexto, textAlign: "center", marginBottom: 8 }}
+            >
+              Sin jugadores en el campo
+            </Text>
+          ) : (
+            onField.map(renderLiveCard)
+          )}
+
+          <Text style={[s.sectionTitle, { color: c.texto, marginTop: 16 }]}>
+            🪑 Banquillo ({bench.length})
+          </Text>
+          {bench.length === 0 ? (
+            <Text
+              style={{ color: c.subtexto, textAlign: "center", marginBottom: 8 }}
+            >
+              Banquillo vacío
+            </Text>
+          ) : (
+            bench.map(renderBenchCard)
+          )}
+
+          {substituted.length > 0 && (
+            <>
+              <Text
+                style={[
+                  s.sectionTitle,
+                  { color: c.subtexto, marginTop: 16, fontSize: 13 },
+                ]}
+              >
+                🔄 Sustituidos ({substituted.length})
+              </Text>
+              {substituted.map(renderSubbedOutCard)}
+            </>
+          )}
+
+          {expelled.length > 0 && (
+            <>
+              <Text
+                style={[
+                  s.sectionTitle,
+                  { color: "#ef4444", marginTop: 16, fontSize: 13 },
+                ]}
+              >
+                🟥 Expulsados ({expelled.length})
+              </Text>
+              {expelled.map(renderExpelledCard)}
+            </>
+          )}
+
+          <TouchableOpacity
+            style={[
+              s.primaryBtn,
+              { backgroundColor: c.boton, opacity: saving ? 0.6 : 1, marginTop: 8 },
+            ]}
+            onPress={handleSave}
+            disabled={saving}
+          >
+            <Text style={s.primaryBtnText}>
+              {saving ? "Guardando..." : "💾 Guardar estadísticas"}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{ padding: 14, alignItems: "center", marginTop: 4 }}
+            onPress={handleResetMatch}
+          >
+            <Text style={{ color: "#ef4444", fontWeight: "600", fontSize: 13 }}>
+              🔄 Resetear Partido
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+      );
+    }
+
+    // ── EDIT mode — manual +/- counters (unchanged) ───────────────────────────
+    return (
+      <ScrollView
+        contentContainerStyle={s.list}
+        showsVerticalScrollIndicator={false}
       >
-        <Text style={s.primaryBtnText}>
-          {saving ? "Guardando..." : "💾 Guardar estadísticas"}
-        </Text>
-      </TouchableOpacity>
-    </ScrollView>
-  );
+        {visibleStats.length === 0 && (
+          <View style={s.empty}>
+            <Text style={{ fontSize: 28 }}>📋</Text>
+            <Text style={{ color: c.subtexto, marginTop: 8 }}>
+              No hay jugadores convocados.
+            </Text>
+          </View>
+        )}
+
+        {visibleStats.map((item) => (
+          <View
+            key={item.playerId}
+            style={[s.statsCard, { backgroundColor: c.input }]}
+          >
+            <View style={s.playerHeader}>
+              <Text style={[s.playerName, { color: c.texto, flex: 1 }]}>
+                {item.firstName} {item.lastName}
+              </Text>
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+              >
+                <Text style={{ fontSize: 12, color: c.subtexto }}>Titular</Text>
+                <Switch
+                  value={item.wasStarter}
+                  onValueChange={(v) =>
+                    updateStat(item.playerId, "wasStarter", v)
+                  }
+                  trackColor={{ false: c.bordeInput, true: "#16a34a" }}
+                  thumbColor="#fff"
+                />
+              </View>
+            </View>
+
+            <View style={s.countersRow}>
+              {STAT_FIELDS.map(({ label, field }) => (
+                <View key={field} style={s.counter}>
+                  <Text
+                    style={{ fontSize: 10, color: c.subtexto, marginBottom: 4 }}
+                  >
+                    {label}
+                  </Text>
+                  <View
+                    style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+                  >
+                    <TouchableOpacity
+                      style={[
+                        s.counterBtn,
+                        { borderColor: c.bordeInput, backgroundColor: c.fondo },
+                      ]}
+                      onPress={() =>
+                        updateStat(
+                          item.playerId,
+                          field,
+                          Math.max(0, (item[field] as number) - 1),
+                        )
+                      }
+                    >
+                      <Text style={{ color: c.texto, fontWeight: "700" }}>−</Text>
+                    </TouchableOpacity>
+                    <Text
+                      style={{
+                        minWidth: 22,
+                        textAlign: "center",
+                        color: c.texto,
+                        fontWeight: "700",
+                      }}
+                    >
+                      {item[field] as number}
+                    </Text>
+                    <TouchableOpacity
+                      style={[
+                        s.counterBtn,
+                        { borderColor: c.bordeInput, backgroundColor: c.fondo },
+                      ]}
+                      onPress={() =>
+                        updateStat(
+                          item.playerId,
+                          field,
+                          (item[field] as number) + 1,
+                        )
+                      }
+                    >
+                      <Text style={{ color: c.texto, fontWeight: "700" }}>+</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        ))}
+
+        <TouchableOpacity
+          style={[
+            s.primaryBtn,
+            { backgroundColor: c.boton, opacity: saving ? 0.6 : 1, marginTop: 8 },
+          ]}
+          onPress={handleSave}
+          disabled={saving}
+        >
+          <Text style={s.primaryBtnText}>
+            {saving ? "Guardando..." : "💾 Guardar estadísticas"}
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
+    );
+  };
 
   // ── JSX ───────────────────────────────────────────────────────────────────
   return (
@@ -615,7 +1132,7 @@ export default function MatchScreen() {
           renderStatsStep()
         )}
 
-        {/* Close match modal — only relevant in LIVE mode */}
+        {/* Close match modal */}
         {isLive && (
           <Modal visible={closeModal} transparent animationType="slide">
             <KeyboardAvoidingView
@@ -684,6 +1201,9 @@ export default function MatchScreen() {
             </KeyboardAvoidingView>
           </Modal>
         )}
+
+        {/* Substitution picker modal */}
+        {isLive && renderSubModal()}
       </View>
     </ScreenContainer>
   );
@@ -748,13 +1268,25 @@ const s = StyleSheet.create({
   hint: { fontSize: 13, textAlign: "center", marginBottom: 14 },
   empty: { alignItems: "center", paddingVertical: 40 },
 
-  // ─── NUEVOS ESTILOS PARA POSICIONES Y CONTADOR ───
+  // Counter box
   counterBox: {
     padding: 14,
     borderRadius: 12,
     alignItems: "center",
     marginBottom: 16,
   },
+
+  // Position group header
+  groupTitle: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1,
+    marginTop: 16,
+    marginBottom: 6,
+    paddingHorizontal: 2,
+  },
+
+  // Natural position badge
   naturalPosBadge: {
     backgroundColor: "#e5e7eb",
     paddingHorizontal: 6,
@@ -763,6 +1295,16 @@ const s = StyleSheet.create({
     marginLeft: 8,
   },
   naturalPosText: { fontSize: 10, fontWeight: "700", color: "#6b7280" },
+
+  // Starter/suplente badge pill
+  starterBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1.5,
+  },
+
+  // Position selector (inside starter card)
   positionSelector: {
     flexDirection: "row",
     gap: 8,
@@ -780,7 +1322,7 @@ const s = StyleSheet.create({
   },
   posBtnText: { fontSize: 11, fontWeight: "700" },
 
-  // Callups step card — modificado a columna para que quepan los botones de posición
+  // Callup card (tappable, column layout)
   callupsCard: {
     flexDirection: "column",
     alignItems: "stretch",
@@ -789,7 +1331,7 @@ const s = StyleSheet.create({
     marginBottom: 10,
   },
 
-  // Stats step card — vertical
+  // Stats card (live actions)
   statsCard: { borderRadius: 12, padding: 14, marginBottom: 10 },
   playerHeader: {
     flexDirection: "row",
@@ -798,7 +1340,20 @@ const s = StyleSheet.create({
   },
   playerName: { fontWeight: "700", fontSize: 15 },
 
-  // Counters
+  // Bench / subbed-out card
+  benchCard: {
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+  },
+  subbedOutBadge: {
+    backgroundColor: "#f3f4f6",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+
+  // Edit mode counters
   countersRow: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   counter: { alignItems: "center", minWidth: 58 },
   counterBtn: {
@@ -831,7 +1386,7 @@ const s = StyleSheet.create({
   },
   primaryBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
 
-  // Close match modal
+  // Modals (shared bottom-sheet style)
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.55)",
@@ -847,4 +1402,34 @@ const s = StyleSheet.create({
   modalTitle: { fontSize: 18, fontWeight: "700", marginBottom: 14 },
   input: { borderWidth: 1, borderRadius: 8, padding: 12, marginBottom: 10 },
   cancelBtn: { padding: 14, alignItems: "center" },
+
+  // Substitution picker rows
+  subPickerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+  },
+
+  // Live-mode section headers
+  sectionTitle: { fontSize: 16, fontWeight: "700", marginBottom: 10 },
+
+  // Live-mode player position tag
+  positionTag: { fontSize: 12, marginTop: 2 },
+
+  // Live-mode quick action buttons
+  quickActionsRow: {
+    flexDirection: "row",
+    gap: 6,
+    marginTop: 10,
+    flexWrap: "wrap",
+  },
+  quickActionBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: "center",
+    minWidth: 50,
+  },
+  quickActionText: { color: "#fff", fontWeight: "700", fontSize: 13 },
 });
