@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import DefaultAvatar from "../../../components/DefaultAvatar";
 import ScreenContainer from "../../../components/ScreenContainer";
 import { apiFetch } from "../../../lib/api";
 import { useAuthStore } from "../../../lib/store";
@@ -23,12 +24,23 @@ import { useTheme } from "../../../lib/useTheme";
 
 type MatchMode = "LIVE" | "EDIT";
 type Step = "callups" | "stats";
+type LiveTab = "field" | "timeline";
 
 interface MatchEvent {
+  id: string;
   playerId: number;
-  type: "SUB_IN" | "SUB_OUT" | "RED_CARD";
+  type: "SUB_IN" | "SUB_OUT" | "RED_CARD" | "YELLOW_CARD" | "GOAL" | "ASSIST";
   minute: number;
 }
+
+// ─── Formations ──────────────────────────────────────────────────────────────
+
+const FORMATIONS = [
+  { id: "4-4-2", label: "4-4-2", por: 1, def: 4, med: 4, del: 2 },
+  { id: "4-3-3", label: "4-3-3", por: 1, def: 4, med: 3, del: 3 },
+  { id: "3-5-2", label: "3-5-2", por: 1, def: 3, med: 5, del: 2 },
+  { id: "3-2-1", label: "3-2-1 ⑦", por: 1, def: 3, med: 2, del: 1 },
+] as const;
 
 interface CallupEntry {
   playerId: number;
@@ -98,13 +110,15 @@ function getPlayerStatus(
   wasStarter: boolean,
   events: MatchEvent[],
 ): { isCurrentlyPlaying: boolean; isBench: boolean; isSubbedOut: boolean } {
-  const playerEvents = events.filter((e) => e.playerId === playerId);
-  if (playerEvents.length === 0) {
+  const subEvents = events
+    .filter((e) => e.playerId === playerId && (e.type === "SUB_IN" || e.type === "SUB_OUT"))
+    .sort((a, b) => a.minute - b.minute);
+  if (subEvents.length === 0) {
     return { isCurrentlyPlaying: wasStarter, isBench: !wasStarter, isSubbedOut: false };
   }
-  const lastEvent = playerEvents[playerEvents.length - 1];
-  const isCurrentlyPlaying = lastEvent.type === "SUB_IN";
-  const hasEverPlayed = wasStarter || playerEvents.some((e) => e.type === "SUB_IN");
+  const lastSub = subEvents[subEvents.length - 1];
+  const isCurrentlyPlaying = lastSub.type === "SUB_IN";
+  const hasEverPlayed = wasStarter || subEvents.some((e) => e.type === "SUB_IN");
   return {
     isCurrentlyPlaying,
     isBench: !hasEverPlayed,
@@ -133,6 +147,7 @@ export default function MatchScreen() {
   const [stats, setStats] = useState<StatsEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [closing, setClosing] = useState(false);
 
   // Stopwatch
   const [seconds, setSeconds] = useState(0);
@@ -143,12 +158,21 @@ export default function MatchScreen() {
   const [goalsFor, setGoalsFor] = useState("");
   const [goalsAgainst, setGoalsAgainst] = useState("");
 
-  // Match events — substitutions during LIVE mode
+  // Match events — all live events tracked for timeline/undo
   const [matchEvents, setMatchEvents] = useState<MatchEvent[]>([]);
 
   // Substitution picker modal
   const [subModalVisible, setSubModalVisible] = useState(false);
   const [playerToSubOut, setPlayerToSubOut] = useState<StatsEntry | null>(null);
+
+  // Formation selection (LIVE callups step)
+  const [selectedFormation, setSelectedFormation] = useState<string | null>(null);
+
+  // Live tab: pitch view vs timeline
+  const [liveTab, setLiveTab] = useState<LiveTab>("field");
+
+  // Pitch action modal
+  const [pitchPlayer, setPitchPlayer] = useState<StatsEntry | null>(null);
 
   // ── Stopwatch effect ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -224,7 +248,7 @@ export default function MatchScreen() {
   const calculateMinutes = (playerId: number, wasStarter: boolean): number => {
     const currentMinute = Math.floor(seconds / 60);
     const events = matchEvents
-      .filter((e) => e.playerId === playerId)
+      .filter((e) => e.playerId === playerId && (e.type === "SUB_IN" || e.type === "SUB_OUT"))
       .sort((a, b) => a.minute - b.minute);
 
     if (events.length === 0) return wasStarter ? currentMinute : 0;
@@ -257,13 +281,15 @@ export default function MatchScreen() {
     if (playerToSubOut.assignedPosition) {
       updateStat(benchPlayer.playerId, "assignedPosition", playerToSubOut.assignedPosition);
     }
+    const ts = Date.now();
     setMatchEvents((prev) => [
       ...prev,
-      { playerId: playerToSubOut.playerId, type: "SUB_OUT", minute: currentMinute },
-      { playerId: benchPlayer.playerId, type: "SUB_IN", minute: currentMinute },
+      { id: `${ts}-out`, playerId: playerToSubOut.playerId, type: "SUB_OUT", minute: currentMinute },
+      { id: `${ts}-in`, playerId: benchPlayer.playerId, type: "SUB_IN", minute: currentMinute },
     ]);
     setSubModalVisible(false);
     setPlayerToSubOut(null);
+    setPitchPlayer(null);
   };
 
   // ── Card handlers (LIVE only) ─────────────────────────────────────────────
@@ -272,22 +298,62 @@ export default function MatchScreen() {
     updateStat(player.playerId, "redCards", player.redCards + 1);
     setMatchEvents((prev) => [
       ...prev,
-      { playerId: player.playerId, type: "RED_CARD", minute: currentMinute },
+      { id: `${Date.now()}-rc`, playerId: player.playerId, type: "RED_CARD", minute: currentMinute },
     ]);
   };
 
   const handleYellowCard = (player: StatsEntry) => {
+    const currentMinute = Math.floor(seconds / 60);
     const newYellowCount = player.yellowCards + 1;
     updateStat(player.playerId, "yellowCards", newYellowCount);
-
+    setMatchEvents((prev) => [
+      ...prev,
+      { id: `${Date.now()}-yc`, playerId: player.playerId, type: "YELLOW_CARD", minute: currentMinute },
+    ]);
     if (isLive && newYellowCount === 2) {
       handleRedCard(player);
-      const currentMinute = Math.floor(seconds / 60);
       Alert.alert(
         "Doble Amarilla",
         `El jugador ha recibido la segunda amarilla y ha sido expulsado en el min ${currentMinute}.`,
       );
     }
+  };
+
+  const handleGoal = (player: StatsEntry) => {
+    const currentMinute = Math.floor(seconds / 60);
+    updateStat(player.playerId, "goals", player.goals + 1);
+    setMatchEvents((prev) => [
+      ...prev,
+      { id: `${Date.now()}-goal`, playerId: player.playerId, type: "GOAL", minute: currentMinute },
+    ]);
+  };
+
+  const handleAssist = (player: StatsEntry) => {
+    const currentMinute = Math.floor(seconds / 60);
+    updateStat(player.playerId, "assists", player.assists + 1);
+    setMatchEvents((prev) => [
+      ...prev,
+      { id: `${Date.now()}-assist`, playerId: player.playerId, type: "ASSIST", minute: currentMinute },
+    ]);
+  };
+
+  const handleUndoEvent = (eventId: string) => {
+    const event = matchEvents.find((e) => e.id === eventId);
+    if (!event) return;
+    // Use functional updater so we always operate on the latest stats snapshot
+    setStats((prev) =>
+      prev.map((p) => {
+        if (p.playerId !== event.playerId) return p;
+        switch (event.type) {
+          case "GOAL":        return { ...p, goals:       Math.max(0, p.goals - 1) };
+          case "ASSIST":      return { ...p, assists:     Math.max(0, p.assists - 1) };
+          case "YELLOW_CARD": return { ...p, yellowCards: Math.max(0, p.yellowCards - 1) };
+          case "RED_CARD":    return { ...p, redCards:    Math.max(0, p.redCards - 1) };
+          default:            return p; // SUB_IN/SUB_OUT: getStatus recalculates from events
+        }
+      }),
+    );
+    setMatchEvents((prev) => [...prev.filter((e) => e.id !== eventId)]);
   };
 
   // ── Save stats ────────────────────────────────────────────────────────────
@@ -326,6 +392,8 @@ export default function MatchScreen() {
       Alert.alert("Atención", "Introduce el marcador final.");
       return;
     }
+    if (closing) return;
+    setClosing(true);
     try {
       const res = await apiFetch(
         `/api/coach/match/${matchId}/close?clubId=${clubId}`,
@@ -338,15 +406,16 @@ export default function MatchScreen() {
         },
       );
       if (!res.ok) {
-        Alert.alert("Error", `No se pudo cerrar el partido (HTTP ${res.status}).`);
+        const msg = await res.text().catch(() => "");
+        Alert.alert("Error", msg || `No se pudo cerrar el partido (HTTP ${res.status}).`);
         return;
       }
       setCloseModal(false);
-      Alert.alert("Partido cerrado", "El resultado ha sido registrado.", [
-        { text: "OK", onPress: () => router.back() },
-      ]);
-    } catch {
-      Alert.alert("Error", "Error de red al cerrar el partido.");
+      router.replace("/(club)/calendario");
+    } catch (e: any) {
+      Alert.alert("Error", e?.message ?? "Error de red al cerrar el partido.");
+    } finally {
+      setClosing(false);
     }
   };
 
@@ -356,6 +425,9 @@ export default function MatchScreen() {
     setSeconds(0);
     setIsRunning(false);
     setStep("callups");
+    setSelectedFormation(null);
+    setLiveTab("field");
+    setPitchPlayer(null);
     setStats((prev) =>
       prev.map((p) => ({
         ...p,
@@ -389,7 +461,7 @@ export default function MatchScreen() {
 
   const renderHeader = () => (
     <View style={[s.header, { backgroundColor: c.fondo }]}>
-      <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+      <TouchableOpacity onPress={() => router.replace("/(club)/calendario")} style={s.backBtn}>
         <Text style={{ fontSize: 24, color: c.boton }}>‹</Text>
       </TouchableOpacity>
 
@@ -477,17 +549,75 @@ export default function MatchScreen() {
     );
   };
 
-  // ── Step 1 — Tappable starter selection grouped by position ───────────────
+  // ── Step 1 — Formation picker + tappable starter selection ──────────────
   const renderCallupsStep = () => {
     const startersCount = visibleStats.filter((p) => p.wasStarter).length;
-    const isMaxStarters = startersCount >= 11;
+    const formation = FORMATIONS.find((f) => f.id === selectedFormation);
+    const maxStarters = formation ? formation.por + formation.def + formation.med + formation.del : 11;
+    const isMaxStarters = startersCount >= maxStarters;
     const grouped = groupByPosition(visibleStats);
+
+    // Count starters per position
+    const starters = visibleStats.filter((p) => p.wasStarter);
+    const porCount = starters.filter((p) => p.assignedPosition === "POR").length;
+    const defCount = starters.filter((p) => p.assignedPosition === "DEF").length;
+    const medCount = starters.filter((p) => p.assignedPosition === "MED").length;
+    const delCount = starters.filter((p) => p.assignedPosition === "DEL").length;
+
+    const formationReady =
+      !!formation &&
+      porCount === formation.por &&
+      defCount === formation.def &&
+      medCount === formation.med &&
+      delCount === formation.del;
 
     return (
       <ScrollView
         contentContainerStyle={s.list}
         showsVerticalScrollIndicator={false}
       >
+        {/* Formation picker */}
+        <Text style={[s.groupTitle, { color: c.subtexto, marginTop: 0 }]}>FORMACIÓN</Text>
+        <View style={{ flexDirection: "row", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+          {FORMATIONS.map((f) => {
+            const active = selectedFormation === f.id;
+            return (
+              <TouchableOpacity
+                key={f.id}
+                style={[
+                  s.formationChip,
+                  { backgroundColor: active ? c.boton : c.input, borderColor: active ? c.boton : c.bordeInput },
+                ]}
+                onPress={() => setSelectedFormation(active ? null : f.id)}
+              >
+                <Text style={{ color: active ? "#fff" : c.subtexto, fontWeight: "700", fontSize: 13 }}>
+                  {f.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {formation && (
+          <View style={[s.formationRequirements, { backgroundColor: c.input }]}>
+            {[
+              { pos: "POR", need: formation.por, have: porCount },
+              { pos: "DEF", need: formation.def, have: defCount },
+              { pos: "MED", need: formation.med, have: medCount },
+              { pos: "DEL", need: formation.del, have: delCount },
+            ].map(({ pos, need, have }) => (
+              <View key={pos} style={{ alignItems: "center" }}>
+                <Text style={{ fontSize: 10, color: have === need ? "#16a34a" : c.subtexto, fontWeight: "700" }}>
+                  {pos}
+                </Text>
+                <Text style={{ fontSize: 15, fontWeight: "800", color: have === need ? "#16a34a" : c.texto }}>
+                  {have}/{need}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
         <Text style={[s.hint, { color: c.subtexto }]}>
           Pulsa la tarjeta de un jugador para marcarlo como titular.
         </Text>
@@ -505,7 +635,7 @@ export default function MatchScreen() {
               color: isMaxStarters ? "#16a34a" : c.texto,
             }}
           >
-            Titulares: {startersCount} / 11
+            Titulares: {startersCount} / {maxStarters}
           </Text>
         </View>
 
@@ -641,19 +771,11 @@ export default function MatchScreen() {
             {
               backgroundColor: "#16a34a",
               marginTop: 8,
-              opacity: startersCount === 11 ? 1 : 0.5,
+              opacity: formationReady ? 1 : 0.5,
             },
           ]}
-          onPress={() => {
-            if (startersCount !== 11) {
-              Alert.alert(
-                "Atención",
-                "Debes seleccionar exactamente 11 titulares para iniciar el partido.",
-              );
-              return;
-            }
-            setStep("stats");
-          }}
+          disabled={!formationReady}
+          onPress={() => setStep("stats")}
         >
           <Text style={s.primaryBtnText}>Confirmar Titulares →</Text>
         </TouchableOpacity>
@@ -692,7 +814,7 @@ export default function MatchScreen() {
     </View>
   );
 
-  // ── Live card — full actions, shown only for players on the field ──────────
+  // ── Live card — full actions, shown in list view ──────────────────────────
   const renderLiveCard = (item: StatsEntry) => (
     <View key={item.playerId} style={[s.statsCard, { backgroundColor: c.input }]}>
       <View style={s.playerHeader}>
@@ -711,13 +833,13 @@ export default function MatchScreen() {
       <View style={s.quickActionsRow}>
         <TouchableOpacity
           style={[s.quickActionBtn, { backgroundColor: "#16a34a" }]}
-          onPress={() => updateStat(item.playerId, "goals", item.goals + 1)}
+          onPress={() => handleGoal(item)}
         >
           <Text style={s.quickActionText}>⚽ {item.goals}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[s.quickActionBtn, { backgroundColor: "#3b82f6" }]}
-          onPress={() => updateStat(item.playerId, "assists", item.assists + 1)}
+          onPress={() => handleAssist(item)}
         >
           <Text style={s.quickActionText}>🎯 {item.assists}</Text>
         </TouchableOpacity>
@@ -888,9 +1010,162 @@ export default function MatchScreen() {
     );
   };
 
+  // ── FIFA Pitch view ───────────────────────────────────────────────────────
+  const renderPitchView = (onField: StatsEntry[], bench: StatsEntry[], substituted: StatsEntry[], expelled: StatsEntry[]) => {
+    const por = onField.filter((p) => p.assignedPosition === "POR");
+    const def = onField.filter((p) => p.assignedPosition === "DEF");
+    const med = onField.filter((p) => p.assignedPosition === "MED");
+    const del = onField.filter((p) => p.assignedPosition === "DEL");
+    const unassigned = onField.filter((p) => !p.assignedPosition);
+
+    const renderPitchPlayerCard = (p: StatsEntry) => (
+      <TouchableOpacity
+        key={p.playerId}
+        style={s.pitchPlayerCard}
+        onPress={() => setPitchPlayer(p)}
+        activeOpacity={0.8}
+      >
+        <View style={s.pitchAvatar}>
+          <DefaultAvatar size={24} color="#ffffff" />
+        </View>
+        <Text style={s.pitchPlayerName} numberOfLines={1}>
+          {p.lastName || p.firstName}
+        </Text>
+        <View style={s.pitchPlayerStats}>
+          {p.goals > 0 && <Text style={s.pitchStatBadge}>⚽{p.goals}</Text>}
+          {p.yellowCards > 0 && <Text style={s.pitchStatBadge}>🟨</Text>}
+          {p.redCards > 0 && <Text style={s.pitchStatBadge}>🟥</Text>}
+        </View>
+      </TouchableOpacity>
+    );
+
+    return (
+      <ScrollView contentContainerStyle={{ paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
+        {renderStopwatch()}
+        <View style={s.pitch}>
+          {/* Opponent half */}
+          <View style={s.pitchHalfLabel}><Text style={s.pitchHalfText}>RIVAL</Text></View>
+          <View style={s.pitchMidLine} />
+          {/* Our half: FWD → MID → DEF → GK */}
+          <View style={s.pitchRow}>{del.map(renderPitchPlayerCard)}</View>
+          {med.length > 0 && <View style={s.pitchRow}>{med.map(renderPitchPlayerCard)}</View>}
+          {def.length > 0 && <View style={s.pitchRow}>{def.map(renderPitchPlayerCard)}</View>}
+          {unassigned.length > 0 && <View style={s.pitchRow}>{unassigned.map(renderPitchPlayerCard)}</View>}
+          <View style={[s.pitchRow, { justifyContent: "center" }]}>{por.map(renderPitchPlayerCard)}</View>
+          <View style={s.pitchHalfLabel}><Text style={s.pitchHalfText}>NUESTRA PORTERÍA</Text></View>
+        </View>
+
+        {/* Bench / Substituted / Expelled */}
+        {bench.length > 0 && (
+          <View style={{ paddingHorizontal: 16, marginTop: 12 }}>
+            <Text style={[s.sectionTitle, { color: c.texto, fontSize: 13 }]}>🪑 Banquillo — toca para sustituir</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {bench.map((p) => (
+                <TouchableOpacity key={p.playerId} style={[s.benchChip, { backgroundColor: c.input }]} onPress={() => handleOpenSubModal(p)}>
+                  <Text style={{ fontSize: 11, color: c.texto, fontWeight: "600" }} numberOfLines={1}>{p.firstName[0]}. {p.lastName}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+        {substituted.length > 0 && (
+          <View style={{ paddingHorizontal: 16, marginTop: 8 }}>
+            <Text style={[s.sectionTitle, { color: c.subtexto, fontSize: 12 }]}>🔄 Sustituidos</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {substituted.map((p) => (
+                <View key={p.playerId} style={[s.benchChip, { backgroundColor: c.input, opacity: 0.5 }]}>
+                  <Text style={{ fontSize: 11, color: c.subtexto, fontWeight: "600" }} numberOfLines={1}>{p.firstName[0]}. {p.lastName}</Text>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+        {expelled.length > 0 && (
+          <View style={{ paddingHorizontal: 16, marginTop: 8 }}>
+            <Text style={[s.sectionTitle, { color: "#ef4444", fontSize: 12 }]}>🟥 Expulsados</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {expelled.map((p) => (
+                <View key={p.playerId} style={[s.benchChip, { backgroundColor: "#ef444415" }]}>
+                  <Text style={{ fontSize: 11, color: "#ef4444", fontWeight: "600" }} numberOfLines={1}>{p.firstName[0]}. {p.lastName}</Text>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        <View style={{ paddingHorizontal: 16, marginTop: 16 }}>
+          <TouchableOpacity
+            style={[s.primaryBtn, { backgroundColor: c.boton, opacity: saving ? 0.6 : 1 }]}
+            onPress={handleSave}
+            disabled={saving}
+          >
+            <Text style={s.primaryBtnText}>{saving ? "Guardando..." : "💾 Guardar estadísticas"}</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    );
+  };
+
+  // ── Timeline view ─────────────────────────────────────────────────────────
+  const renderTimeline = () => {
+    const eventLabel: Record<string, string> = {
+      GOAL: "⚽ Gol",
+      ASSIST: "🎯 Asistencia",
+      YELLOW_CARD: "🟨 Amarilla",
+      RED_CARD: "🟥 Roja",
+      SUB_IN: "🔄 Entra",
+      SUB_OUT: "🔄 Sale",
+    };
+
+    const sorted = [...matchEvents].sort((a, b) => a.minute - b.minute);
+
+    return (
+      <ScrollView contentContainerStyle={s.list} showsVerticalScrollIndicator={false}>
+        {sorted.length === 0 ? (
+          <View style={s.empty}>
+            <Text style={{ fontSize: 28 }}>📋</Text>
+            <Text style={{ color: c.subtexto, marginTop: 8, textAlign: "center" }}>
+              Aún no hay eventos registrados.
+            </Text>
+          </View>
+        ) : (
+          sorted.map((event) => {
+            const player = stats.find((p) => p.playerId === event.playerId);
+            return (
+              <View key={event.id} style={[s.timelineRow, { backgroundColor: c.input }]}>
+                <View style={[s.timelineBadge, { backgroundColor: `${c.boton}20` }]}>
+                  <Text style={[s.timelineMin, { color: c.boton }]}>{event.minute}'</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 13, fontWeight: "700", color: c.texto }}>
+                    {eventLabel[event.type] ?? event.type}
+                  </Text>
+                  {player && (
+                    <Text style={{ fontSize: 12, color: c.subtexto }}>
+                      {player.firstName} {player.lastName}
+                    </Text>
+                  )}
+                </View>
+                <TouchableOpacity
+                  onPress={() => Alert.alert("Deshacer", "¿Quitar este evento?", [
+                    { text: "Cancelar", style: "cancel" },
+                    { text: "Deshacer", style: "destructive", onPress: () => handleUndoEvent(event.id) },
+                  ])}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={{ fontSize: 16, color: "#ef4444" }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            );
+          })
+        )}
+      </ScrollView>
+    );
+  };
+
   // ── Step 2 — Stats (LIVE + EDIT) ──────────────────────────────────────────
   const renderStatsStep = () => {
-    // ── LIVE mode: four sections — field / bench / substituted / expelled ─────
+    // ── LIVE mode: tab bar + pitch or timeline ────────────────────────────────
     if (isLive) {
       const onField: StatsEntry[] = [];
       const bench: StatsEntry[] = [];
@@ -915,88 +1190,37 @@ export default function MatchScreen() {
       }
 
       return (
-        <ScrollView
-          contentContainerStyle={s.list}
-          showsVerticalScrollIndicator={false}
-        >
-          {renderStopwatch()}
-
-          <Text style={[s.sectionTitle, { color: c.texto }]}>
-            🟢 En el campo ({onField.length})
-          </Text>
-          {onField.length === 0 ? (
-            <Text
-              style={{ color: c.subtexto, textAlign: "center", marginBottom: 8 }}
-            >
-              Sin jugadores en el campo
-            </Text>
-          ) : (
-            onField.map(renderLiveCard)
-          )}
-
-          <Text style={[s.sectionTitle, { color: c.texto, marginTop: 16 }]}>
-            🪑 Banquillo ({bench.length})
-          </Text>
-          {bench.length === 0 ? (
-            <Text
-              style={{ color: c.subtexto, textAlign: "center", marginBottom: 8 }}
-            >
-              Banquillo vacío
-            </Text>
-          ) : (
-            bench.map(renderBenchCard)
-          )}
-
-          {substituted.length > 0 && (
-            <>
-              <Text
-                style={[
-                  s.sectionTitle,
-                  { color: c.subtexto, marginTop: 16, fontSize: 13 },
-                ]}
-              >
-                🔄 Sustituidos ({substituted.length})
-              </Text>
-              {substituted.map(renderSubbedOutCard)}
-            </>
-          )}
-
-          {expelled.length > 0 && (
-            <>
-              <Text
-                style={[
-                  s.sectionTitle,
-                  { color: "#ef4444", marginTop: 16, fontSize: 13 },
-                ]}
-              >
-                🟥 Expulsados ({expelled.length})
-              </Text>
-              {expelled.map(renderExpelledCard)}
-            </>
-          )}
-
+        <View style={{ flex: 1 }}>
+          {/* Back to lineup */}
           <TouchableOpacity
-            style={[
-              s.primaryBtn,
-              { backgroundColor: c.boton, opacity: saving ? 0.6 : 1, marginTop: 8 },
-            ]}
-            onPress={handleSave}
-            disabled={saving}
+            style={[s.backToLineupBtn, { borderBottomColor: c.bordeInput }]}
+            onPress={() => setStep("callups")}
           >
-            <Text style={s.primaryBtnText}>
-              {saving ? "Guardando..." : "💾 Guardar estadísticas"}
-            </Text>
+            <Text style={{ color: c.boton, fontSize: 12, fontWeight: "600" }}>⬅ Editar Alineación</Text>
           </TouchableOpacity>
+          {/* Tab bar */}
+          <View style={[s.liveTabBar, { borderBottomColor: c.bordeInput }]}>
+            {([
+              { id: "field" as LiveTab, label: "⚽ Campo" },
+              { id: "timeline" as LiveTab, label: `📋 Eventos (${matchEvents.length})` },
+            ]).map(({ id, label }) => (
+              <TouchableOpacity
+                key={id}
+                style={[s.liveTabBtn, liveTab === id && { borderBottomColor: c.boton, borderBottomWidth: 2 }]}
+                onPress={() => setLiveTab(id)}
+              >
+                <Text style={{ color: liveTab === id ? c.boton : c.subtexto, fontWeight: liveTab === id ? "700" : "600", fontSize: 13 }}>
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
-          <TouchableOpacity
-            style={{ padding: 14, alignItems: "center", marginTop: 4 }}
-            onPress={handleResetMatch}
-          >
-            <Text style={{ color: "#ef4444", fontWeight: "600", fontSize: 13 }}>
-              🔄 Resetear Partido
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
+          {liveTab === "field"
+            ? renderPitchView(onField, bench, substituted, expelled)
+            : renderTimeline()
+          }
+        </View>
       );
     }
 
@@ -1182,11 +1406,15 @@ export default function MatchScreen() {
                   <TouchableOpacity
                     style={[
                       s.primaryBtn,
-                      { backgroundColor: "#ef4444", marginTop: 4 },
+                      { backgroundColor: "#ef4444", marginTop: 4, opacity: closing ? 0.6 : 1 },
                     ]}
                     onPress={handleClose}
+                    disabled={closing}
                   >
-                    <Text style={s.primaryBtnText}>Confirmar resultado</Text>
+                    {closing
+                      ? <ActivityIndicator color="#fff" />
+                      : <Text style={s.primaryBtnText}>Confirmar resultado</Text>
+                    }
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={s.cancelBtn}
@@ -1204,6 +1432,42 @@ export default function MatchScreen() {
 
         {/* Substitution picker modal */}
         {isLive && renderSubModal()}
+
+        {/* Pitch player action modal */}
+        {isLive && pitchPlayer && (
+          <Modal visible={!!pitchPlayer} transparent animationType="slide">
+            <View style={s.modalOverlay}>
+              <View style={[s.modalBox, { backgroundColor: c.fondo, borderColor: c.bordeInput }]}>
+                <Text style={[s.modalTitle, { color: c.texto }]}>
+                  {pitchPlayer.firstName} {pitchPlayer.lastName}
+                </Text>
+                <Text style={{ color: c.subtexto, marginBottom: 14, fontSize: 13 }}>
+                  {pitchPlayer.assignedPosition ?? pitchPlayer.position ?? "Sin posición"}
+                </Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
+                  {[
+                    { label: "⚽ Gol", bg: "#16a34a", onPress: () => { handleGoal(pitchPlayer); setPitchPlayer(null); } },
+                    { label: "🎯 Asistencia", bg: "#3b82f6", onPress: () => { handleAssist(pitchPlayer); setPitchPlayer(null); } },
+                    { label: "🟨 Amarilla", bg: "#f59e0b", onPress: () => { handleYellowCard(pitchPlayer); setPitchPlayer(null); } },
+                    { label: "🟥 Roja", bg: "#ef4444", onPress: () => { handleRedCard(pitchPlayer); setPitchPlayer(null); } },
+                    { label: "🔄 Cambio", bg: "#6b7280", onPress: () => { setPitchPlayer(null); handleOpenSubModal(pitchPlayer); } },
+                  ].map(({ label, bg, onPress }) => (
+                    <TouchableOpacity
+                      key={label}
+                      style={[s.quickActionBtn, { backgroundColor: bg, flexBasis: "47%" }]}
+                      onPress={onPress}
+                    >
+                      <Text style={s.quickActionText}>{label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <TouchableOpacity style={s.cancelBtn} onPress={() => setPitchPlayer(null)}>
+                  <Text style={{ color: c.subtexto, fontWeight: "600" }}>Cerrar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+        )}
       </View>
     </ScreenContainer>
   );
@@ -1212,7 +1476,7 @@ export default function MatchScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, maxWidth: 1000, width: "100%", alignSelf: "center" },
 
   // Header
   header: {
@@ -1432,4 +1696,131 @@ const s = StyleSheet.create({
     minWidth: 50,
   },
   quickActionText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+
+  // Formation picker
+  formationChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1.5,
+  },
+  formationRequirements: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+  },
+
+  // Back-to-lineup banner (LIVE stats step)
+  backToLineupBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    alignItems: "flex-start",
+  },
+
+  // Live tab bar
+  liveTabBar: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+  },
+  liveTabBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: "center",
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
+  },
+
+  // FIFA Pitch
+  pitch: {
+    backgroundColor: "#166534",
+    marginHorizontal: 16,
+    borderRadius: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    gap: 12,
+  },
+  pitchRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    gap: 6,
+  },
+  pitchMidLine: {
+    height: 1.5,
+    backgroundColor: "rgba(255,255,255,0.35)",
+    marginHorizontal: 8,
+  },
+  pitchHalfLabel: {
+    alignItems: "center",
+  },
+  pitchHalfText: {
+    color: "rgba(255,255,255,0.4)",
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  pitchPlayerCard: {
+    backgroundColor: "rgba(0,0,0,0.6)",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    alignItems: "center",
+    minWidth: 70,
+    maxWidth: 90,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
+  },
+  pitchAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 5,
+  },
+  pitchPlayerName: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  pitchPlayerStats: {
+    flexDirection: "row",
+    gap: 2,
+    marginTop: 3,
+  },
+  pitchStatBadge: {
+    fontSize: 9,
+  },
+
+  // Bench horizontal chip
+  benchChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginRight: 8,
+  },
+
+  // Timeline
+  timelineRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+    gap: 12,
+  },
+  timelineBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    minWidth: 42,
+    alignItems: "center",
+  },
+  timelineMin: { fontSize: 13, fontWeight: "800" },
 });

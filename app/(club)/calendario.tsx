@@ -137,6 +137,7 @@ export default function Calendario() {
   const isPresident = role === "PRESIDENT";
   const isCoach = role === "COACH";
   const isRelative = role === "RELATIVE";
+  const isPlayer = role === "PLAYER";
   const canCreate = isCoach || isPresident;
 
   const canDeleteEvent = (event: CalendarEvent): boolean => {
@@ -222,12 +223,12 @@ export default function Calendario() {
   }, [clubId, currentSeasonLabel, selectedTeamId, year, month]);
 
   const fetchTeams = useCallback(async () => {
-    if (!isPresident) return;
+    if (!isPresident && !isCoach) return;
     try {
       const res = await apiFetch(`/api/club/equipos/${clubId}`);
       setTeams(await res.json());
     } catch {}
-  }, [clubId, isPresident]);
+  }, [clubId, isPresident, isCoach]);
 
   const fetchFields = useCallback(async () => {
     if (!canCreate) return;
@@ -261,6 +262,10 @@ export default function Calendario() {
     const finalTeamId = isPresident ? form.teamId : myTeamId;
     if (!finalTeamId || !form.date || !form.time) {
       Alert.alert("Atención", "La fecha, la hora y el equipo son obligatorios.");
+      return;
+    }
+    if (createType === "MATCH" && !form.opponentName?.trim()) {
+      Alert.alert("Faltan datos", "El nombre del rival es obligatorio para crear un partido.");
       return;
     }
     if (createType === "TRAINING" && form.recurring && (!form.recurringDays?.length || !form.recurringEndDate)) {
@@ -324,6 +329,8 @@ export default function Calendario() {
               Alert.alert("Error", `No se pudo eliminar el evento (HTTP ${res.status}).`);
               return;
             }
+            setEvents((prev) => prev.filter((e) => !(e.type === eventType && e.id === eventId)));
+            setSelectedDayEvents((prev) => prev.filter((e) => !(e.type === eventType && e.id === eventId)));
             setDayModal(false);
             fetchEvents();
             Alert.alert("Éxito", "Evento eliminado.");
@@ -342,10 +349,10 @@ export default function Calendario() {
     const date = new Date(event.startTime);
     setCreateType(event.type);
     setForm({
-      isHome: "true",
-      matchType: "LEAGUE",
+      isHome: event.title.startsWith("vs ") ? "true" : event.title.startsWith("@ ") ? "false" : "true",
+      matchType: event.matchType || "LEAGUE",
       location: event.location || "",
-      fieldId: null,
+      fieldId: event.fieldId ?? null,
       endTime: event.endTime ? toTimeString(new Date(event.endTime)) : "",
       recurring: false,
       recurringDays: [],
@@ -353,7 +360,7 @@ export default function Calendario() {
       date: toDateString(date),
       time: toTimeString(date),
       teamId: String(event.teamId),
-      opponentName: event.type === "MATCH" ? event.title.replace(/^vs\s*/i, "") : "",
+      opponentName: event.type === "MATCH" ? event.title.replace(/^(vs |@ )/i, "") : "",
     });
     setEditingEvent(event);
     setDayModal(false);
@@ -891,7 +898,7 @@ export default function Calendario() {
                         {item.teamName && (
                           <Text style={[styles.metaText, { color: c.subtexto, marginTop: 3 }]}>👥 {item.teamName}</Text>
                         )}
-                        {item.type === "MATCH" && (() => {
+                        {item.type === "MATCH" && canCreate && (() => {
                           const today = new Date(); today.setHours(0, 0, 0, 0);
                           const matchDay = new Date(item.startTime); matchDay.setHours(0, 0, 0, 0);
                           const diff = matchDay.getTime() - today.getTime();
@@ -974,7 +981,7 @@ export default function Calendario() {
                   ))}
                 </View>
 
-                {isPresident && (
+                {isPresident ? (
                   <>
                     <Text style={[styles.inputLabel, { color: c.texto }]}>Seleccionar Equipo *</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
@@ -985,6 +992,21 @@ export default function Calendario() {
                       ))}
                     </ScrollView>
                   </>
+                ) : myTeamId ? (
+                  <View style={[styles.coachTeamBanner, { backgroundColor: `${c.boton}12`, borderColor: `${c.boton}30` }]}>
+                    <Text style={{ fontSize: 12, fontWeight: "600", color: c.boton }}>
+                      {`👥 Equipo: ${teams.find(t => t.id === myTeamId) ? `${teams.find(t => t.id === myTeamId)!.category} ${teams.find(t => t.id === myTeamId)!.suffix}` : "Tu equipo asignado"}`}
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={[styles.coachTeamBanner, { backgroundColor: "#ef444415", borderColor: "#ef444430" }]}>
+                    <Text style={{ fontSize: 13, fontWeight: "700", color: "#ef4444", marginBottom: 2 }}>
+                      ⚠️ Sin equipo asignado
+                    </Text>
+                    <Text style={{ fontSize: 12, color: "#ef4444" }}>
+                      No tienes equipo asignado para crear eventos. Contacta con el presidente del club.
+                    </Text>
+                  </View>
                 )}
 
                 <View style={{ flexDirection: "row", gap: 10 }}>
@@ -1082,7 +1104,11 @@ export default function Calendario() {
                   <TouchableOpacity style={[styles.btnCrear, { backgroundColor: c.input, flex: 1, borderWidth: 1, borderColor: c.bordeInput }]} onPress={() => { setCreateModal(false); setEditingEvent(null); }}>
                     <Text style={[styles.btnCrearText, { color: c.texto }]}>Cancelar</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.btnCrear, { backgroundColor: isSubmitting ? c.bordeInput : c.boton, flex: 1 }]} onPress={handleCreateEvent} disabled={isSubmitting}>
+                  <TouchableOpacity
+                    style={[styles.btnCrear, { backgroundColor: (isSubmitting || (!isPresident && !myTeamId)) ? c.bordeInput : c.boton, flex: 1 }]}
+                    onPress={handleCreateEvent}
+                    disabled={isSubmitting || (!isPresident && !myTeamId)}
+                  >
                     {isSubmitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnCrearText}>{editingEvent ? "Actualizar" : "Confirmar"}</Text>}
                   </TouchableOpacity>
                 </View>
@@ -1184,4 +1210,5 @@ const styles = StyleSheet.create({
   chipModal: { flex: 1, paddingVertical: 11, borderRadius: 12, alignItems: "center", borderWidth: 1 },
   btnCrear: { paddingVertical: 13, borderRadius: 12, alignItems: "center" },
   btnCrearText: { color: "white", fontWeight: "bold", fontSize: 15 },
+  coachTeamBanner: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 },
 });

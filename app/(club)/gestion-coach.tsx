@@ -32,7 +32,7 @@ interface Player {
   firstName: string;
   lastName: string;
   photoUrl?: string | null;
-  has_image_consent?: boolean;
+  image_consent_season?: string | null;
 }
 
 interface PlayerAttendanceItem {
@@ -327,16 +327,32 @@ export default function GestionCoach() {
   const fetchAttendance = async () => {
     if (!selectedEvent) return;
     try {
-      const res = await apiFetch(
-        `/api/coach/training/${selectedEvent.id}/attendance?clubId=${clubId}`,
-      );
-      const data = await res.json();
-      setAttendance(
-        data.players.map((p: any) => ({
-          ...p,
-          positiveMark: p.positiveMark ?? false,
-        })),
-      );
+      // Fetch attendance records AND the team roster in parallel.
+      // The teamId comes from the EVENT itself so both coaches and presidents
+      // always load the correct players regardless of their own assigned team.
+      const [attendanceRes, playersRes] = await Promise.all([
+        apiFetch(`/api/coach/training/${selectedEvent.id}/attendance?clubId=${clubId}`),
+        apiFetch(`/api/teams/${selectedEvent.teamId}/players?seasonLabel=${seasonLabel}&clubId=${clubId}`),
+      ]);
+      const data = await attendanceRes.json();
+      const rosterPlayers: Player[] = playersRes.ok ? await playersRes.json() : [];
+      const fetched: any[] = data.players ?? [];
+
+      if (fetched.length > 0) {
+        setAttendance(fetched.map((p: any) => ({ ...p, positiveMark: p.positiveMark ?? false })));
+      } else {
+        // No pre-existing records: seed from the team roster with default values
+        setAttendance(
+          rosterPlayers.map((p) => ({
+            playerId: p.id,
+            firstName: p.firstName,
+            lastName: p.lastName,
+            attended: false,
+            absenceReason: null,
+            positiveMark: false,
+          })),
+        );
+      }
     } catch {
       Alert.alert("Error", "No se pudo cargar la asistencia.");
     }
@@ -345,11 +361,27 @@ export default function GestionCoach() {
   const fetchCallups = async () => {
     if (!selectedEvent) return;
     try {
-      const res = await apiFetch(
-        `/api/coach/match/callups/${selectedEvent.id}?clubId=${clubId}`,
-      );
-      const data: CallupEntry[] = await res.json();
-      setCallups(data.length > 0 ? data : []);
+      const [callupsRes, playersRes] = await Promise.all([
+        apiFetch(`/api/coach/match/callups/${selectedEvent.id}?clubId=${clubId}`),
+        apiFetch(`/api/teams/${selectedEvent.teamId}/players?seasonLabel=${seasonLabel}&clubId=${clubId}`),
+      ]);
+      const data: CallupEntry[] = await callupsRes.json();
+      const rosterPlayers: Player[] = playersRes.ok ? await playersRes.json() : [];
+
+      if (data.length > 0) {
+        setCallups(data);
+      } else {
+        // No pre-existing callup records: seed from the team roster
+        setCallups(
+          rosterPlayers.map((p) => ({
+            playerId: p.id,
+            firstName: p.firstName,
+            lastName: p.lastName,
+            status: "CALLED_UP" as const,
+            absenceReason: null,
+          })),
+        );
+      }
     } catch {}
   };
 

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, ScrollView, Modal, StyleSheet, ActivityIndicator, FlatList } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, Modal, StyleSheet, ActivityIndicator, FlatList, Switch } from "react-native";
 import { apiFetch } from "../../lib/api";
 import { parseApiError } from "../../lib/helper";
 import { useAuthStore } from "../../lib/store";
@@ -41,7 +41,8 @@ const labelForRole = (role: string): string => ROLE_LABELS[role] ?? role;
 
 export default function TabSolicitudes() {
   const c = useTheme();
-  const { activeClubId: clubId } = useAuthStore();
+  const { activeClubId: clubId, activeSeasonName } = useAuthStore();
+  const currentSeason = activeSeasonName || "24-25";
 
   const [requests, setRequests] = useState<JoinRequest[]>([]);
   const [reqLoading, setReqLoading] = useState(false);
@@ -62,6 +63,7 @@ export default function TabSolicitudes() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalError, setModalError] = useState('');
   const [fetchError, setFetchError] = useState('');
+  const [imageConsentEnabled, setImageConsentEnabled] = useState(false);
 
   const [teams, setTeams] = useState<Team[]>([]);
   const [teamPlayers, setTeamPlayers] = useState<TeamPlayer[]>([]);
@@ -111,6 +113,7 @@ export default function TabSolicitudes() {
     setAssignRole(preRole);
     setAssignTeamId(null);
     setAssignLinkedPlayerId(null);
+    setImageConsentEnabled(false);
     setModalError('');
     setReviewModal(true);
   };
@@ -132,6 +135,7 @@ export default function TabSolicitudes() {
         }
         payload.teamId = assignTeamId;
         payload.playerPosition = assignPlayerPosition;
+        payload.imageConsentSeason = imageConsentEnabled ? currentSeason : null;
       } else if (assignRole === "COACH") {
         if (!assignTeamId) {
           setModalError("Debes seleccionar un equipo para el entrenador.");
@@ -273,6 +277,23 @@ export default function TabSolicitudes() {
                           </TouchableOpacity>
                         ))}
                       </View>
+
+                      <View style={[styles.consentRow, { backgroundColor: c.input, borderColor: c.bordeInput }]}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: c.texto, fontSize: 13, fontWeight: "600" }}>
+                            {`Consentimiento de Imagen (Temporada ${currentSeason})`}
+                          </Text>
+                          <Text style={{ color: c.subtexto, fontSize: 11, marginTop: 3 }}>
+                            {"Las fotos se ocultarán automáticamente al cambiar de temporada deportiva hasta que se renueve el consentimiento"}
+                          </Text>
+                        </View>
+                        <Switch
+                          value={imageConsentEnabled}
+                          onValueChange={setImageConsentEnabled}
+                          trackColor={{ false: c.bordeInput, true: c.boton }}
+                          thumbColor="#fff"
+                        />
+                      </View>
                     </View>
                   )}
 
@@ -401,4 +422,5 @@ const styles = StyleSheet.create({
   emptyBox: { borderRadius: 16, borderWidth: 1, padding: 30, marginBottom: 12, alignItems: "center" },
   infoBox: { borderRadius: 12, borderWidth: 1, padding: 12, marginBottom: 4 },
   errorBanner: { padding: 12, borderWidth: 1, borderRadius: 12, marginBottom: 12 },
+  consentRow: { flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 12, borderWidth: 1, padding: 12, marginBottom: 16 },
 });

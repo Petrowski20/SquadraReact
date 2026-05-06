@@ -1,4 +1,5 @@
 import * as Clipboard from "expo-clipboard";
+import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -67,10 +68,10 @@ function parseBirthDate(s: string | null | undefined): number {
   return new Date(s).getTime();
 }
 
-/** Avatar reutilizable: muestra imagen si existe, o iniciales con color de fondo */
+/** Avatar reutilizable: muestra imagen si existe, o silueta de usuario como icono */
 function Avatar({
   photoUrl,
-  initials,
+  initials: _initials,
   size,
   color,
   borderColor,
@@ -81,7 +82,6 @@ function Avatar({
   color: string;
   borderColor?: string;
 }) {
-  const fontSize = size * 0.45;
   const borderRadius = size * 0.25;
 
   return (
@@ -105,7 +105,7 @@ function Avatar({
           resizeMode="cover"
         />
       ) : (
-        <Text style={[styles.avatarText, { color, fontSize }]}>{initials}</Text>
+        <Ionicons name="person" size={size * 0.52} color={color} style={{ opacity: 0.65 }} />
       )}
     </View>
   );
@@ -524,6 +524,8 @@ export default function MiClub() {
             <View style={styles.jugadoresList}>
               {sortedPlantilla.map((j: any) => {
                 const posColor = POSICION_COLOR[j.position] || c.boton;
+                const hasValidConsent = j.imageConsentSeason === seasonLabel;
+                const playerPhotoUrl = hasValidConsent ? j.photoUrl : null;
                 return (
                   <TouchableOpacity
                     key={j.id}
@@ -539,7 +541,7 @@ export default function MiClub() {
                     accessibilityLabel={`${j.firstName} ${j.lastName}, ${POSICION_LABEL[j.position] || "Jugador"}`}
                   >
                     <Avatar
-                      photoUrl={j.photoUrl}
+                      photoUrl={playerPhotoUrl}
                       initials={j.firstName?.charAt(0) || "?"}
                       size={44}
                       color={posColor}
@@ -649,7 +651,11 @@ export default function MiClub() {
               {/* Avatar grande */}
               <View style={styles.detailAvatarWrap}>
                 <Avatar
-                  photoUrl={detailPerson?.photoUrl}
+                  photoUrl={
+                    detailIsStaff
+                      ? detailPerson?.photoUrl
+                      : (detailPerson?.imageConsentSeason === seasonLabel ? detailPerson?.photoUrl : null)
+                  }
                   initials={detailPerson?.firstName?.charAt(0) || "?"}
                   size={72}
                   color={

@@ -74,9 +74,15 @@ export default function Horarios() {
 
   // ── FILTRAR Y AGRUPAR ─────────────────────────────────────────────────────
   const eventosAgrupados = useMemo(() => {
-    const filtrados = eventos.filter(
+    let filtrados = eventos.filter(
       (e) => filtroTipo === "TODOS" || e.tipo === filtroTipo,
     );
+    // Filtrado en cliente como respaldo (por si el endpoint no soporta teamId)
+    if (selectedTeamId !== null) {
+      filtrados = filtrados.filter(
+        (e) => e.teamId === selectedTeamId || e.team_id === selectedTeamId,
+      );
+    }
     const grupos: Record<string, any[]> = {};
     filtrados.forEach((e) => {
       const d = new Date(e.fecha?.split("/").reverse().join("-") || e.date);
@@ -89,7 +95,7 @@ export default function Horarios() {
       grupos[key].push(e);
     });
     return grupos;
-  }, [eventos, filtroTipo]);
+  }, [eventos, filtroTipo, selectedTeamId]);
 
   // ── RENDER ────────────────────────────────────────────────────────────────
   return (
@@ -129,34 +135,36 @@ export default function Horarios() {
       </View>
 
       {/* ─── SELECTOR DE EQUIPO ───────────────────────────────────────────── */}
-      {teams.length > 1 && (
+      {teams.length > 0 && (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           style={{ flexGrow: 0 }}
           contentContainerStyle={styles.teamScroll}
         >
-          {/* Opción "Todos" */}
-          <TouchableOpacity
-            style={[
-              styles.teamChip,
-              {
-                backgroundColor: selectedTeamId === null ? c.boton : c.input,
-                borderColor: selectedTeamId === null ? c.boton : c.bordeInput,
-              },
-            ]}
-            onPress={() => setSelectedTeamId(null)}
-          >
-            <Text
-              style={{
-                color: selectedTeamId === null ? "#fff" : c.texto,
-                fontWeight: "600",
-                fontSize: 12,
-              }}
+          {/* "Todos los equipos" — solo visible para roles con visibilidad global */}
+          {activeRole !== "RELATIVE" && (
+            <TouchableOpacity
+              style={[
+                styles.teamChip,
+                {
+                  backgroundColor: selectedTeamId === null ? c.boton : c.input,
+                  borderColor: selectedTeamId === null ? c.boton : c.bordeInput,
+                },
+              ]}
+              onPress={() => setSelectedTeamId(null)}
             >
-              🏟 Todos
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={{
+                  color: selectedTeamId === null ? "#fff" : c.texto,
+                  fontWeight: "600",
+                  fontSize: 12,
+                }}
+              >
+                🏟 Todos los equipos
+              </Text>
+            </TouchableOpacity>
+          )}
 
           {teams.map((t: any) => {
             const selected = selectedTeamId === t.id;
