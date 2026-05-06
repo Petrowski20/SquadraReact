@@ -58,9 +58,14 @@ export default function TabEquipos() {
         onPress: async () => {
           try {
             const res = await apiFetch(`/api/president/teams/${teamId}?clubId=${clubId}`, { method: "DELETE" });
-            if (res.ok) setTeams((prev) => prev.filter((t) => t.id !== teamId));
-            else Alert.alert("No se puede eliminar", "Este equipo tiene jugadores u otros datos asociados.");
-          } catch { Alert.alert("No se puede eliminar", "Este equipo tiene jugadores u otros datos asociados."); }
+            if (res.ok) {
+              setTeams((prev) => prev.filter((t) => t.id !== teamId));
+            } else {
+              Alert.alert("No se puede eliminar", "No puedes borrar un equipo que tiene jugadores o eventos asignados.");
+            }
+          } catch {
+            Alert.alert("Error de red", "No se pudo conectar con el servidor.");
+          }
         },
       },
     ]);

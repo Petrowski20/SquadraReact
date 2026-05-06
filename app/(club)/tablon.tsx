@@ -63,7 +63,8 @@ export default function Tablon() {
   const isPresident = activeRole === "PRESIDENT";
   const isCoach = activeRole === "COACH" || activeRole === "STAFF";
   const canCreate = isPresident || isCoach;
-  const canDelete = isPresident;
+  const canDeleteAnuncio = (a: any) =>
+    isPresident || (isCoach && !(a.isClub ?? a.club));
 
   // ── STATE ─────────────────────────────────────────────────────────────────
   const [anuncios, setAnuncios] = useState<any[]>([]);
@@ -404,7 +405,7 @@ export default function Tablon() {
                         style={[styles.unreadDot, { backgroundColor: c.boton }]}
                       />
                     )}
-                    {canDelete && (
+                    {canDeleteAnuncio(a) && (
                       <TouchableOpacity
                         onPress={() => handleEliminar(a.id)}
                         style={[

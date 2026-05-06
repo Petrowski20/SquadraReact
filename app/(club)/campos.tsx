@@ -25,8 +25,92 @@ import ScreenContainer from '../../components/ScreenContainer'
 const DEFAULT_CAMPO_IMAGE =
   'https://images.unsplash.com/photo-1459865264687-595d652de67e?q=80&w=500&auto=format&fit=crop'
 
-// Gestor: puede ver inactivos y gestionar. Espectador: solo ve activos + cómo llegar.
 const ROLES_GESTOR = ['PRESIDENT', 'COACH', 'STAFF']
+
+// ── TARJETA DE CAMPO ──────────────────────────────────────────────────────────
+// Doble View (outer shadow / inner overflow) para que la sombra no quede recortada
+function CampoCard({
+  campo,
+  c,
+  brokenImgs,
+  setBrokenImgs,
+  onMaps,
+  gestorActions,
+}: {
+  campo: any
+  c: any
+  brokenImgs: Set<any>
+  setBrokenImgs: (fn: (prev: Set<any>) => Set<any>) => void
+  onMaps: () => void
+  gestorActions?: React.ReactNode
+}) {
+  const hasImage = !brokenImgs.has(campo.id) && !!campo.photo_url
+  const surfaceType = campo.surfaceType || campo.surface_type
+
+  return (
+    <View
+      style={[
+        styles.cardShadow,
+        {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 3 },
+          shadowOpacity: c.isDark ? 0.35 : 0.1,
+          shadowRadius: 8,
+          elevation: 5,
+        },
+      ]}
+    >
+      <View style={[styles.cardInner, { backgroundColor: c.input }]}>
+        {/* ── CABECERA IMAGEN ─────────────────────────────────────────────── */}
+        <View>
+          {hasImage ? (
+            <Image
+              source={{ uri: campo.photo_url }}
+              style={styles.campoPhoto}
+              resizeMode="cover"
+              onError={() => setBrokenImgs(prev => new Set([...prev, campo.id]))}
+            />
+          ) : (
+            <View style={styles.fallbackImage}>
+              <Text style={styles.fallbackIcon}>🏟</Text>
+            </View>
+          )}
+
+          {/* Chip superficie — se muestra solo si el dato existe */}
+          {!!surfaceType && (
+            <View style={styles.surfaceChip}>
+              <Text style={styles.surfaceChipText}>{surfaceType}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* ── BLOQUE DE INFORMACIÓN ───────────────────────────────────────── */}
+        <View style={styles.campoContent}>
+          <Text style={[styles.campoNombre, { color: c.texto }]} numberOfLines={1}>
+            {campo.name}
+          </Text>
+          <Text style={[styles.campoDireccion, { color: c.subtexto }]} numberOfLines={2}>
+            📍 {campo.address}
+          </Text>
+
+          {/* Acciones de gestor (toggle / eliminar) */}
+          {gestorActions}
+
+          {/* Botón cómo llegar */}
+          <TouchableOpacity
+            style={[styles.btnComoLlegar, { backgroundColor: c.boton }]}
+            onPress={onMaps}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.btnComoLlegarText}>📍 Cómo llegar</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function Campos() {
   const c = useTheme()
@@ -42,12 +126,12 @@ export default function Campos() {
   const canDelete   = isPresident
 
   // ── STATE ─────────────────────────────────────────────────────────────────
-  const [campos, setCampos]       = useState<any[]>([])
-  const [loading, setLoading]     = useState(true)
-  const [modalOpen, setModal]     = useState(false)
-  const [saving, setSaving]       = useState(false)
+  const [campos, setCampos]           = useState<any[]>([])
+  const [loading, setLoading]         = useState(true)
+  const [modalOpen, setModal]         = useState(false)
+  const [saving, setSaving]           = useState(false)
   const [isImporting, setIsImporting] = useState(false)
-  const [brokenImgs, setBrokenImgs] = useState<Set<any>>(new Set())
+  const [brokenImgs, setBrokenImgs]   = useState<Set<any>>(new Set())
 
   const [nombre, setNombre]       = useState('')
   const [direccion, setDireccion] = useState('')
@@ -87,7 +171,6 @@ export default function Campos() {
   // ── ACCIONES GESTOR ───────────────────────────────────────────────────────
   const toggleActivo = async (id: number) => {
     setCampos(prev => prev.map(f => f.id === id ? { ...f, isActive: !f.isActive } : f))
-    // Items importados localmente tienen ID negativo — no existen en backend
     if (id < 0) return
     try {
       const res = await apiFetch(`/api/fields/${id}/toggle?clubId=${clubId}`, { method: 'PATCH' })
@@ -112,7 +195,6 @@ export default function Campos() {
 
     if (!await confirmar()) return
 
-    // Items importados localmente tienen ID negativo — eliminar solo del estado
     if (id < 0) {
       setCampos(prev => prev.filter(f => f.id !== id))
       return
@@ -198,7 +280,6 @@ export default function Campos() {
         return
       }
 
-      // club_id SIEMPRE del contexto — ignoramos cualquier clubId del archivo
       const apiUrl = clubId
         ? `/api/fields/club/${clubId}`
         : `/api/fields/team/${activeTeamId}`
@@ -271,8 +352,11 @@ export default function Campos() {
   if (!isGestor) {
     return (
       <ScreenContainer>
-        <ScrollView style={{ flex: 1, backgroundColor: c.fondo }} contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-
+        <ScrollView
+          style={{ flex: 1, backgroundColor: c.fondo }}
+          contentContainerStyle={styles.container}
+          showsVerticalScrollIndicator={false}
+        >
           <Text style={[styles.titulo, { color: c.texto, marginBottom: 25 }]}>📍 Campos</Text>
 
           {activos.length === 0 ? (
@@ -283,35 +367,19 @@ export default function Campos() {
               </Text>
             </View>
           ) : (
-            <View style={styles.list}>
+            <View style={styles.listWrapper}>
               {activos.map(campo => (
-                <View
+                <CampoCard
                   key={campo.id}
-                  style={[styles.campoCard, { backgroundColor: c.input, borderColor: c.bordeInput, borderLeftColor: c.boton }]}
-                >
-                  <Image
-                    source={{ uri: brokenImgs.has(campo.id) || !campo.photo_url ? DEFAULT_CAMPO_IMAGE : campo.photo_url }}
-                    style={styles.campoPhoto}
-                    resizeMode="cover"
-                    onError={() => setBrokenImgs(prev => new Set([...prev, campo.id]))}
-                  />
-                  <View style={styles.campoContent}>
-                    <View style={styles.campoTexts}>
-                      <Text style={[styles.campoNombre, { color: c.texto }]}>{campo.name}</Text>
-                      <Text style={[styles.campoDireccion, { color: c.subtexto }]}>{campo.address}</Text>
-                    </View>
-                    <TouchableOpacity
-                      style={[styles.btnComoLlegar, { backgroundColor: c.boton }]}
-                      onPress={() => abrirMaps(campo)}
-                    >
-                      <Text style={styles.btnComoLlegarText}>📍 Cómo llegar</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
+                  campo={campo}
+                  c={c}
+                  brokenImgs={brokenImgs}
+                  setBrokenImgs={setBrokenImgs}
+                  onMaps={() => abrirMaps(campo)}
+                />
               ))}
             </View>
           )}
-
         </ScrollView>
       </ScreenContainer>
     )
@@ -320,104 +388,95 @@ export default function Campos() {
   // ── VISTA GESTOR ──────────────────────────────────────────────────────────
   return (
     <ScreenContainer>
-    <View style={[styles.wrapper, { backgroundColor: c.fondo }]}>
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      <View style={[styles.wrapper, { backgroundColor: c.fondo }]}>
+        <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
 
-        {/* HEADER */}
-        <View style={styles.header}>
-          <Text style={[styles.titulo, { color: c.texto }]}>📍 Campos</Text>
-          {canCreate && (
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <TouchableOpacity
-                style={[styles.addButton, { backgroundColor: c.input, borderWidth: 1, borderColor: c.bordeInput }]}
-                onPress={handleImportCampos}
-                disabled={isImporting}
-              >
-                {isImporting
-                  ? <ActivityIndicator size="small" color={c.boton} />
-                  : <Text style={{ color: c.boton, fontWeight: 'bold', fontSize: 13 }}>📥 Importar</Text>
-                }
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.addButton, { backgroundColor: c.boton }]}
-                onPress={() => setModal(true)}
-              >
-                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13 }}>+ Añadir campo</Text>
-              </TouchableOpacity>
+          {/* HEADER */}
+          <View style={styles.header}>
+            <Text style={[styles.titulo, { color: c.texto }]}>📍 Campos</Text>
+            {canCreate && (
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity
+                  style={[styles.addButton, { backgroundColor: c.input, borderWidth: 1, borderColor: c.bordeInput }]}
+                  onPress={handleImportCampos}
+                  disabled={isImporting}
+                >
+                  {isImporting
+                    ? <ActivityIndicator size="small" color={c.boton} />
+                    : <Text style={{ color: c.boton, fontWeight: 'bold', fontSize: 13 }}>📥 Importar</Text>
+                  }
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.addButton, { backgroundColor: c.boton }]}
+                  onPress={() => setModal(true)}
+                >
+                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13 }}>+ Añadir campo</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+
+          {campos.length === 0 && (
+            <View style={[styles.emptyCard, { backgroundColor: c.input, borderColor: c.bordeInput }]}>
+              <Text style={[styles.emptyText, { color: c.subtexto }]}>🏟 No hay campos registrados</Text>
             </View>
           )}
-        </View>
 
-        {campos.length === 0 && (
-          <View style={[styles.emptyCard, { backgroundColor: c.input, borderColor: c.bordeInput }]}>
-            <Text style={[styles.emptyText, { color: c.subtexto }]}>🏟 No hay campos registrados</Text>
-          </View>
-        )}
-
-        {/* ACTIVOS */}
-        {activos.length > 0 && (
-          <View style={styles.section}>
-            <Text style={[styles.sectionLabel, { color: c.subtexto }]}>Activos</Text>
-            <View style={styles.list}>
-              {activos.map(campo => (
-                <View
-                  key={campo.id}
-                  style={[styles.campoCard, { backgroundColor: c.input, borderColor: c.bordeInput, borderLeftColor: c.boton }]}
-                >
-                  <Image
-                    source={{ uri: brokenImgs.has(campo.id) || !campo.photo_url ? DEFAULT_CAMPO_IMAGE : campo.photo_url }}
-                    style={styles.campoPhoto}
-                    resizeMode="cover"
-                    onError={() => setBrokenImgs(prev => new Set([...prev, campo.id]))}
+          {/* ACTIVOS */}
+          {activos.length > 0 && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionLabel, { color: c.subtexto }]}>Activos</Text>
+              <View style={styles.listWrapper}>
+                {activos.map(campo => (
+                  <CampoCard
+                    key={campo.id}
+                    campo={campo}
+                    c={c}
+                    brokenImgs={brokenImgs}
+                    setBrokenImgs={setBrokenImgs}
+                    onMaps={() => abrirMaps(campo)}
+                    gestorActions={
+                      <View style={styles.campoActions}>
+                        {canToggle && (
+                          <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: '#f59e0b12', borderColor: '#f59e0b30' }]}
+                            onPress={() => toggleActivo(campo.id)}
+                          >
+                            <Text style={[styles.actionButtonText, { color: '#f59e0b' }]}>Desactivar</Text>
+                          </TouchableOpacity>
+                        )}
+                        {canDelete && (
+                          <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: '#ef444410', borderColor: '#ef444430' }]}
+                            onPress={() => eliminarCampo(campo.id)}
+                          >
+                            <Text style={[styles.actionButtonText, { color: '#ef4444' }]}>🗑 Eliminar</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    }
                   />
-                  <View style={styles.campoContent}>
-                    <View style={styles.campoTexts}>
-                      <Text style={[styles.campoNombre, { color: c.texto }]}>{campo.name}</Text>
-                      <Text style={[styles.campoDireccion, { color: c.subtexto }]}>{campo.address}</Text>
-                    </View>
-                    <View style={styles.campoActions}>
-                      <TouchableOpacity
-                        style={[styles.actionButton, { backgroundColor: '#3b82f615', borderColor: '#3b82f630' }]}
-                        onPress={() => abrirMaps(campo)}
-                      >
-                        <Text style={[styles.actionButtonText, { color: '#3b82f6' }]}>🗺 Maps</Text>
-                      </TouchableOpacity>
-                      {canToggle && (
-                        <TouchableOpacity
-                          style={[styles.actionButton, { backgroundColor: '#f59e0b12', borderColor: '#f59e0b30' }]}
-                          onPress={() => toggleActivo(campo.id)}
-                        >
-                          <Text style={[styles.actionButtonText, { color: '#f59e0b' }]}>Desactivar</Text>
-                        </TouchableOpacity>
-                      )}
-                      {canDelete && (
-                        <TouchableOpacity
-                          style={[styles.actionButton, { backgroundColor: '#ef444410', borderColor: '#ef444430' }]}
-                          onPress={() => eliminarCampo(campo.id)}
-                        >
-                          <Text style={[styles.actionButtonText, { color: '#ef4444' }]}>🗑 Eliminar</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  </View>
-                </View>
-              ))}
+                ))}
+              </View>
             </View>
-          </View>
-        )}
+          )}
 
-        {/* INACTIVOS */}
-        {canToggle && inactivos.length > 0 && (
-          <View style={styles.section}>
-            <Text style={[styles.sectionLabel, { color: c.subtexto }]}>Inactivos</Text>
-            <View style={styles.list}>
-              {inactivos.map((campo, index) => (
-                <View
-                  key={campo.id || `inactivo-${index}`}
-                  style={[styles.campoCard, { backgroundColor: c.input, borderColor: c.bordeInput, opacity: 0.6, paddingVertical: 14, gap: 0, borderLeftWidth: 1 }]}
-                >
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={[styles.campoNombre, { color: c.subtexto, fontSize: 15, marginBottom: 0 }]}>{campo.name}</Text>
+          {/* INACTIVOS — lista compacta sin imagen */}
+          {canToggle && inactivos.length > 0 && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionLabel, { color: c.subtexto }]}>Inactivos</Text>
+              <View style={{ gap: 8 }}>
+                {inactivos.map((campo, index) => (
+                  <View
+                    key={campo.id || `inactivo-${index}`}
+                    style={[
+                      styles.inactivoRow,
+                      { backgroundColor: c.input, borderColor: c.bordeInput },
+                    ]}
+                  >
+                    <Text style={[styles.campoNombre, { color: c.subtexto, fontSize: 15 }]}>
+                      {campo.name}
+                    </Text>
                     <View style={{ flexDirection: 'row', gap: 8 }}>
                       <TouchableOpacity
                         onPress={() => toggleActivo(campo.id)}
@@ -426,7 +485,6 @@ export default function Campos() {
                         <Text style={{ color: c.boton, fontSize: 12, fontWeight: 'bold' }}>Activar</Text>
                       </TouchableOpacity>
                       {canDelete && (
-                        /* Rojo destructivo — sin equivalente semántico en el tema */
                         <TouchableOpacity
                           onPress={() => eliminarCampo(campo.id)}
                           style={[styles.miniButton, { backgroundColor: '#ef444415' }]}
@@ -436,132 +494,192 @@ export default function Campos() {
                       )}
                     </View>
                   </View>
-                </View>
-              ))}
+                ))}
+              </View>
             </View>
-          </View>
-        )}
+          )}
 
-      </ScrollView>
+        </ScrollView>
 
-      {/* MODAL AÑADIR CAMPO */}
-      <Modal visible={modalOpen} transparent animationType="slide" onRequestClose={cerrarModal}>
-        <Pressable style={styles.overlay} onPress={cerrarModal}>
-          <Pressable style={[styles.modalCard, { backgroundColor: c.fondo, borderColor: c.bordeInput }]} onPress={() => {}}>
+        {/* MODAL AÑADIR CAMPO */}
+        <Modal visible={modalOpen} transparent animationType="slide" onRequestClose={cerrarModal}>
+          <Pressable style={styles.overlay} onPress={cerrarModal}>
+            <Pressable style={[styles.modalCard, { backgroundColor: c.fondo, borderColor: c.bordeInput }]} onPress={() => {}}>
 
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitulo, { color: c.texto }]}>📍 Añadir campo</Text>
-              <TouchableOpacity onPress={cerrarModal} disabled={saving}>
-                <Text style={{ color: c.subtexto, fontSize: 20 }}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={{ gap: 14 }}>
-              <View>
-                <Text style={[styles.label, { color: c.subtexto }]}>Nombre *</Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: c.input, borderColor: c.bordeInput, color: c.texto }]}
-                  value={nombre}
-                  onChangeText={setNombre}
-                  placeholder="Campo Municipal..."
-                  placeholderTextColor={c.subtexto}
-                  editable={!saving}
-                />
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitulo, { color: c.texto }]}>📍 Añadir campo</Text>
+                <TouchableOpacity onPress={cerrarModal} disabled={saving}>
+                  <Text style={{ color: c.subtexto, fontSize: 20 }}>✕</Text>
+                </TouchableOpacity>
               </View>
-              <View>
-                <Text style={[styles.label, { color: c.subtexto }]}>Dirección *</Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: c.input, borderColor: c.bordeInput, color: c.texto }]}
-                  value={direccion}
-                  onChangeText={setDireccion}
-                  placeholder="Calle..."
-                  placeholderTextColor={c.subtexto}
-                  editable={!saving}
-                />
-              </View>
-              <View>
-                <Text style={[styles.label, { color: c.subtexto }]}>Enlace Google Maps <Text style={{ fontStyle: 'italic' }}>(opcional)</Text></Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: c.input, borderColor: c.bordeInput, color: c.texto }]}
-                  value={mapsUrl}
-                  onChangeText={setMapsUrl}
-                  placeholder="https://goo.gl/maps/..."
-                  placeholderTextColor={c.subtexto}
-                  autoCapitalize="none"
-                  editable={!saving}
-                />
-              </View>
-              <View>
-                <Text style={[styles.label, { color: c.subtexto }]}>Foto del campo <Text style={{ fontStyle: 'italic' }}>(URL, opcional)</Text></Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: c.input, borderColor: c.bordeInput, color: c.texto }]}
-                  value={photoUrl}
-                  onChangeText={setPhotoUrl}
-                  placeholder="https://..."
-                  placeholderTextColor={c.subtexto}
-                  autoCapitalize="none"
-                  editable={!saving}
-                />
-                {!!photoUrl && (
-                  <Image
-                    source={{ uri: photoUrl }}
-                    style={styles.photoPreview}
-                    resizeMode="cover"
+
+              <View style={{ gap: 14 }}>
+                <View>
+                  <Text style={[styles.label, { color: c.subtexto }]}>Nombre *</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: c.input, borderColor: c.bordeInput, color: c.texto }]}
+                    value={nombre}
+                    onChangeText={setNombre}
+                    placeholder="Campo Municipal..."
+                    placeholderTextColor={c.subtexto}
+                    editable={!saving}
                   />
-                )}
+                </View>
+                <View>
+                  <Text style={[styles.label, { color: c.subtexto }]}>Dirección *</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: c.input, borderColor: c.bordeInput, color: c.texto }]}
+                    value={direccion}
+                    onChangeText={setDireccion}
+                    placeholder="Calle..."
+                    placeholderTextColor={c.subtexto}
+                    editable={!saving}
+                  />
+                </View>
+                <View>
+                  <Text style={[styles.label, { color: c.subtexto }]}>
+                    Enlace Google Maps <Text style={{ fontStyle: 'italic' }}>(opcional)</Text>
+                  </Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: c.input, borderColor: c.bordeInput, color: c.texto }]}
+                    value={mapsUrl}
+                    onChangeText={setMapsUrl}
+                    placeholder="https://goo.gl/maps/..."
+                    placeholderTextColor={c.subtexto}
+                    autoCapitalize="none"
+                    editable={!saving}
+                  />
+                </View>
+                <View>
+                  <Text style={[styles.label, { color: c.subtexto }]}>
+                    Foto del campo <Text style={{ fontStyle: 'italic' }}>(URL, opcional)</Text>
+                  </Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: c.input, borderColor: c.bordeInput, color: c.texto }]}
+                    value={photoUrl}
+                    onChangeText={setPhotoUrl}
+                    placeholder="https://..."
+                    placeholderTextColor={c.subtexto}
+                    autoCapitalize="none"
+                    editable={!saving}
+                  />
+                  {!!photoUrl && (
+                    <Image
+                      source={{ uri: photoUrl }}
+                      style={styles.photoPreview}
+                      resizeMode="cover"
+                    />
+                  )}
+                </View>
+                <TouchableOpacity
+                  style={[styles.btnGuardar, { backgroundColor: saving ? c.bordeInput : c.boton }]}
+                  onPress={guardarCampo}
+                  disabled={saving}
+                >
+                  {saving ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.btnGuardarText}>Guardar campo</Text>
+                  )}
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                style={[styles.btnGuardar, { backgroundColor: saving ? c.bordeInput : c.boton }]}
-                onPress={guardarCampo}
-                disabled={saving}
-              >
-                {saving ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.btnGuardarText}>Guardar campo</Text>
-                )}
-              </TouchableOpacity>
-            </View>
 
+            </Pressable>
           </Pressable>
-        </Pressable>
-      </Modal>
-    </View>
+        </Modal>
+      </View>
     </ScreenContainer>
   )
 }
 
 const styles = StyleSheet.create({
-  wrapper: { flex: 1 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  container: { padding: 20, paddingTop: 60, paddingBottom: 40 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 },
-  titulo: { fontSize: 24, fontWeight: 'bold' },
-  addButton: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 12 },
-  emptyCard: { padding: 40, borderRadius: 20, borderWidth: 1, alignItems: 'center', borderStyle: 'dashed' },
-  emptyText: { fontSize: 15, fontWeight: '500' },
-  section: { marginBottom: 30 },
+  wrapper:    { flex: 1 },
+  center:     { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  container:  { padding: 20, paddingTop: 60, paddingBottom: 40 },
+  header:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 },
+  titulo:     { fontSize: 24, fontWeight: 'bold' },
+  addButton:  { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 12 },
+  emptyCard:  { padding: 40, borderRadius: 20, borderWidth: 1, alignItems: 'center', borderStyle: 'dashed' },
+  emptyText:  { fontSize: 15, fontWeight: '500' },
+  section:    { marginBottom: 30 },
   sectionLabel: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 12 },
-  list: { gap: 12 },
-  campoCard: { borderRadius: 18, borderWidth: 1, borderLeftWidth: 4, overflow: 'hidden' },
-  campoPhoto: { width: '100%', height: 140 },
-  campoContent: { padding: 14, gap: 12 },
-  campoTexts: { flex: 1 },
-  campoNombre: { fontSize: 16, fontWeight: 'bold', marginBottom: 2 },
-  campoDireccion: { fontSize: 13, lineHeight: 18 },
-  photoPreview: { width: '100%', height: 100, borderRadius: 12, marginTop: 8 },
-  campoActions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  actionButton: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, borderWidth: 1 },
+
+  // Web-responsive wrapper — centra y limita el ancho en pantallas grandes
+  listWrapper: { maxWidth: 1000, alignSelf: 'center', width: '100%' },
+
+  // Outer shadow (sin overflow para que la sombra no quede recortada)
+  cardShadow: {
+    borderRadius: 16,
+    marginVertical: 12,
+  },
+  // Inner clip (overflow hidden para redondear la imagen en las esquinas superiores)
+  cardInner: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+
+  // Imagen panorámica — borderTopRadius duplicado por seguridad en Android
+  campoPhoto: {
+    width: '100%',
+    height: 190,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  fallbackImage: {
+    width: '100%',
+    height: 190,
+    backgroundColor: '#166534',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  fallbackIcon: { fontSize: 60 },
+
+  // Chip de superficie flotante sobre la imagen
+  surfaceChip: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  surfaceChipText: { color: '#fff', fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
+
+  campoContent:   { padding: 16, gap: 12 },
+  campoNombre:    { fontSize: 18, fontWeight: 'bold', marginBottom: 2 },
+  campoDireccion: { fontSize: 13, lineHeight: 19 },
+
+  campoActions:     { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  actionButton:     { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, borderWidth: 1 },
   actionButtonText: { fontSize: 12, fontWeight: '700' },
+
+  // Fila compacta para inactivos (sin imagen)
+  inactivoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    opacity: 0.6,
+  },
   miniButton: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
-  btnComoLlegar: { paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+
+  btnComoLlegar:     { paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
   btnComoLlegarText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  modalCard: { borderTopLeftRadius: 25, borderTopRightRadius: 25, padding: 25, borderWidth: 1, borderBottomWidth: 0 },
+
+  photoPreview: { width: '100%', height: 100, borderRadius: 12, marginTop: 8 },
+
+  overlay:     { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  modalCard:   { borderTopLeftRadius: 25, borderTopRightRadius: 25, padding: 25, borderWidth: 1, borderBottomWidth: 0 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitulo: { fontSize: 20, fontWeight: 'bold' },
-  label: { fontSize: 13, fontWeight: 'bold', marginBottom: 4 },
-  input: { padding: 14, borderRadius: 12, borderWidth: 1, fontSize: 15 },
-  btnGuardar: { padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 6 },
+  label:       { fontSize: 13, fontWeight: 'bold', marginBottom: 4 },
+  input:       { padding: 14, borderRadius: 12, borderWidth: 1, fontSize: 15 },
+  btnGuardar:  { padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 6 },
   btnGuardarText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
 })

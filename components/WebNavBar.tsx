@@ -1,7 +1,7 @@
 import { usePathname, useRouter } from 'expo-router'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Image, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import i18n from '../lib/i18n'
 import { useAuthStore } from '../lib/store'
 import { useTheme } from '../lib/useTheme'
@@ -56,15 +56,19 @@ export default function WebNavBar() {
         Platform.OS === 'web' ? ({ position: 'fixed', top: 0, left: 0, right: 0 } as any) : {},
       ]}
     >
-      <View style={styles.brandRow}>
+      <TouchableOpacity style={styles.brandRow} onPress={() => router.push('/(club)/inicio' as any)}>
         <LogoSimbolo size={28} color={c.colorMarca} />
-        {/* AQUÍ ESTÁ EL CAMBIO: Usamos texto en lugar del PNG */}
         <Text style={[styles.brandText, { color: c.colorMarca }]}>
           SQUADRA
         </Text>
-      </View>
+      </TouchableOpacity>
 
-      <View style={styles.navLinks}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.navLinks}
+        contentContainerStyle={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+      >
         {navItems.map((item) => {
           const isActive = pathname === item.path || pathname.endsWith(item.path)
           return (
@@ -83,7 +87,7 @@ export default function WebNavBar() {
             </TouchableOpacity>
           )
         })}
-      </View>
+      </ScrollView>
 
       <View style={styles.rightSection}>
         <TouchableOpacity style={styles.avatarBtn} onPress={() => setOpen(!open)}>
@@ -188,7 +192,7 @@ const styles = StyleSheet.create({
     marginTop: 2, // Ajuste sutil para alinear con el logo circular
   },
 
-  navLinks: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  navLinks: { flex: 1 },
   navLink: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, alignItems: 'center' },
   navLinkText: { fontSize: 14, fontWeight: '500' },
   activeIndicator: { height: 2, borderRadius: 1, width: '80%', marginTop: 2 },

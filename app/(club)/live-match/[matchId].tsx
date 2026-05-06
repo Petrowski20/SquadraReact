@@ -1159,6 +1159,14 @@ export default function MatchScreen() {
             );
           })
         )}
+
+        <TouchableOpacity
+          style={[s.primaryBtn, { backgroundColor: c.boton, opacity: saving ? 0.6 : 1, marginTop: 8 }]}
+          onPress={handleSave}
+          disabled={saving}
+        >
+          <Text style={s.primaryBtnText}>{saving ? "Guardando..." : "💾 Guardar estadísticas"}</Text>
+        </TouchableOpacity>
       </ScrollView>
     );
   };

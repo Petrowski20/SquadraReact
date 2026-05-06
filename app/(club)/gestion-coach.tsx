@@ -510,6 +510,11 @@ export default function GestionCoach() {
       );
       return;
     }
+    const parsedAmount = parseFloat(fineAmount.replace(",", "."));
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      Alert.alert("Atención", "El importe debe ser un número mayor que 0.");
+      return;
+    }
     try {
       await apiFetch(`/api/coach/fines?clubId=${clubId}`, {
         method: "POST",
@@ -517,7 +522,7 @@ export default function GestionCoach() {
           playerId: fineTarget.id,
           teamId: localTeamId,
           reason: fineReason,
-          amount: parseFloat(fineAmount),
+          amount: parsedAmount,
         }),
       });
       setFineModal(false);

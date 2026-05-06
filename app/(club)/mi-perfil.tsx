@@ -70,6 +70,7 @@ async function uploadProfilePhoto(uri: string, token: string): Promise<string> {
 
 export default function MiPerfil() {
 const [pwModal, setPwModal] = useState(false);
+  const [oldPw, setOldPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
   const [pwLoading, setPwLoading] = useState(false);
@@ -88,19 +89,21 @@ const [pwModal, setPwModal] = useState(false);
 
   const handleChangePassword = async () => {
     setPwError('');
+    if (!oldPw) { setPwError('Introduce tu contraseña actual'); return; }
     if (newPw.length < 6) { setPwError('Mínimo 6 caracteres'); return; }
+    if (newPw === oldPw) { setPwError('La nueva contraseña no puede ser igual a la anterior'); return; }
     if (newPw !== confirmPw) { setPwError('Las contraseñas no coinciden'); return; }
     setPwLoading(true);
       try {
-        // OJO: Aquí asumo que ya tienes una variable 'token' sacada de tu estado global (Zustand/Context)
         const res = await fetch(`${API_URL}/api/profile/password`, {
           method: 'PUT',
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ newPassword: newPw }),
+          body: JSON.stringify({ currentPassword: oldPw, newPassword: newPw }),
         });
         if (!res.ok) throw new Error(await res.text());
         setPwModal(false);
-        setNewPw(''); 
+        setOldPw('');
+        setNewPw('');
         setConfirmPw('');
         alert('Contraseña actualizada correctamente');
       } catch (e: any) {
@@ -209,8 +212,8 @@ const [pwModal, setPwModal] = useState(false);
           <Text style={[styles.cardTitle, { color: c.subtexto }]}>{t('profile.theme')}</Text>
           <View style={styles.opciones}>
             {([
-              { value: 'auto', label: `⚙️ ${t('profile.themeAuto')}` },
               { value: 'light', label: `☀️ ${t('profile.themeLight')}` },
+              { value: 'auto', label: `⚙️ ${t('profile.themeAuto')}` },
               { value: 'dark', label: `🌙 ${t('profile.themeDark')}` },
             ] as const).map((opt) => (
               <TouchableOpacity
@@ -265,10 +268,19 @@ const [pwModal, setPwModal] = useState(false);
             
             <TextInput
               style={{ backgroundColor: c.input, borderWidth: 1, borderColor: c.bordeInput, borderRadius: 12, padding: 14, color: c.texto }}
-              placeholder="Nueva contraseña (min. 6)" 
+              placeholder="Contraseña actual"
               placeholderTextColor={c.subtexto}
-              secureTextEntry 
-              value={newPw} 
+              secureTextEntry
+              value={oldPw}
+              onChangeText={setOldPw}
+            />
+
+            <TextInput
+              style={{ backgroundColor: c.input, borderWidth: 1, borderColor: c.bordeInput, borderRadius: 12, padding: 14, color: c.texto }}
+              placeholder="Nueva contraseña (min. 6)"
+              placeholderTextColor={c.subtexto}
+              secureTextEntry
+              value={newPw}
               onChangeText={setNewPw}
             />
             
@@ -286,7 +298,7 @@ const [pwModal, setPwModal] = useState(false);
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <TouchableOpacity 
                 style={{ flex: 1, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: c.bordeInput, alignItems: 'center' }} 
-                onPress={() => { setPwModal(false); setNewPw(''); setConfirmPw(''); setPwError(''); }}
+                onPress={() => { setPwModal(false); setOldPw(''); setNewPw(''); setConfirmPw(''); setPwError(''); }}
               >
                 <Text style={{ color: c.texto, fontWeight: '600' }}>Cancelar</Text>
               </TouchableOpacity>
