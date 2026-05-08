@@ -4,6 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from "react";
 import { Platform } from "react-native";
 import "../lib/i18n";
+import { supabase } from "../lib/supabase";
 import { useAuthStore } from "../lib/store";
 
 SplashScreen.preventAutoHideAsync();
@@ -39,6 +40,34 @@ export default function RootLayout() {
     } finally {
       setIsReady(true);
     }
+  }, []);
+
+  // Native: propagate Supabase OAuth sessions (Google sign-in) to the store
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        const user = session.user;
+        const fullName = user.user_metadata?.full_name ?? user.user_metadata?.name ?? '';
+        const parts = fullName.split(' ');
+        const firstName = user.user_metadata?.given_name ?? parts[0] ?? '';
+        const lastName = user.user_metadata?.family_name ?? parts.slice(1).join(' ') ?? '';
+
+        useAuthStore.getState().setAuth(session.access_token, {
+          userId: user.id,
+          email: user.email ?? '',
+          firstName,
+          lastName,
+          phone: user.phone ?? null,
+          docType: null,
+          docNumber: null,
+          photoUrl: user.user_metadata?.avatar_url ?? null,
+        });
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   // Web: persist store changes to localStorage

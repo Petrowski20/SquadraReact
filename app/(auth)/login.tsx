@@ -14,13 +14,17 @@ import {
   View,
 } from "react-native";
 
+import * as WebBrowser from "expo-web-browser";
 import Svg, { Path } from "react-native-svg";
 
 import LogoSimbolo from "../../components/LogoSimbolo";
+import { signInWithGoogle } from "../../lib/auth/googleSignIn";
 import { isEmpty, isValidEmail } from "../../lib/helper";
 import { useAuthStore } from "../../lib/store";
 import { useTheme } from "../../lib/useTheme";
 import { useGoogleAuth } from "../../lib/useGoogleAuth";
+
+WebBrowser.maybeCompleteAuthSession();
 
 function GoogleIcon() {
   return (
@@ -145,6 +149,18 @@ export default function Login() {
     }
   };
 
+  const handleNativeGoogleLogin = async () => {
+    setIsGoogleLoading(true);
+    setErrorMessage("");
+    try {
+      await signInWithGoogle();
+    } catch {
+      setErrorMessage("Error al conectar con Google. Inténtalo de nuevo.");
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       style={[styles.root, { backgroundColor: c.fondo }]}
@@ -241,30 +257,26 @@ export default function Login() {
             }
           </TouchableOpacity>
 
-          {Platform.OS === "web" && (
-            <>
-              <View style={styles.separatorRow}>
-                <View style={[styles.separatorLine, { backgroundColor: c.bordeInput }]} />
-                <Text style={[styles.separatorText, { color: c.subtexto }]}>o</Text>
-                <View style={[styles.separatorLine, { backgroundColor: c.bordeInput }]} />
+          <View style={styles.separatorRow}>
+            <View style={[styles.separatorLine, { backgroundColor: c.bordeInput }]} />
+            <Text style={[styles.separatorText, { color: c.subtexto }]}>o</Text>
+            <View style={[styles.separatorLine, { backgroundColor: c.bordeInput }]} />
+          </View>
+          <TouchableOpacity
+            style={[styles.googleButton, { backgroundColor: c.fondo, borderColor: c.bordeInput }]}
+            onPress={Platform.OS === "web" ? handleGoogleLogin : handleNativeGoogleLogin}
+            disabled={isGoogleLoading || isLoading}
+            activeOpacity={0.85}
+          >
+            {isGoogleLoading ? (
+              <ActivityIndicator color={c.subtexto} />
+            ) : (
+              <View style={styles.googleButtonContent}>
+                <GoogleIcon />
+                <Text style={[styles.googleButtonText, { color: c.texto }]}>Continuar con Google</Text>
               </View>
-              <TouchableOpacity
-                style={[styles.googleButton, { backgroundColor: c.fondo, borderColor: c.bordeInput }]}
-                onPress={handleGoogleLogin}
-                disabled={isGoogleLoading || isLoading}
-                activeOpacity={0.85}
-              >
-                {isGoogleLoading ? (
-                  <ActivityIndicator color={c.subtexto} />
-                ) : (
-                  <View style={styles.googleButtonContent}>
-                    <GoogleIcon />
-                    <Text style={[styles.googleButtonText, { color: c.texto }]}>Continuar con Google</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            </>
-          )}
+            )}
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.linkContainer}
