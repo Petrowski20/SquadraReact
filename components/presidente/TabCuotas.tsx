@@ -64,7 +64,13 @@ export default function TabCuotas() {
     if (!feeForm.concept?.trim() || !feeForm.amount || !feeForm.dueDate) return Alert.alert("Atención", "Rellena todos los campos.");
     const parsedAmount = parseFloat(String(feeForm.amount).replace(",", "."));
     if (isNaN(parsedAmount) || parsedAmount <= 0) return Alert.alert("Atención", "Importe no válido.");
-    
+
+    const [dy, dm, dd] = feeForm.dueDate!.split("-").map(Number);
+    const dueDay = new Date(dy, dm - 1, dd);
+    const todayFee = new Date();
+    todayFee.setHours(0, 0, 0, 0);
+    if (dueDay < todayFee) return Alert.alert("Atención", "La fecha de la cuota no puede ser anterior a hoy.");
+
     const targetTeamIds = feeForm.teamId === "ALL" ? teams.map((t) => t.id) : [Number(feeForm.teamId)];
     if (targetTeamIds.length === 0) return Alert.alert("Atención", "No hay equipos.");
 

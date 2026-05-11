@@ -29,7 +29,6 @@ export default function WebNavBar() {
   const navItems = [
     { path: '/inicio', label: t('nav.home', 'Inicio') },
     { path: '/calendario', label: t('nav.calendar', 'Calendario') },
-    { path: '/horarios', label: t('nav.schedule', 'Horarios') },
     { path: '/tablon', label: t('nav.board', 'Tablón') },
     { path: '/mi-club', label: t('nav.myClub', 'Mi Club') },
     { path: '/campos', label: t('nav.fields', 'Campos') },
