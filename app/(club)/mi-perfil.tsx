@@ -244,7 +244,19 @@ const [pwModal, setPwModal] = useState(false);
           </View>
           <Text style={{ color: c.subtexto, fontSize: 20 }}>›</Text>
         </TouchableOpacity>
-
+            {/* Manual de Usuario */}
+          {/* Manual de Usuario */}
+        <TouchableOpacity
+          style={[styles.card, styles.accionBtn, { borderColor: c.bordeInput, backgroundColor: c.input }]}
+          onPress={() => router.push('/manual' as any)} 
+        >
+          <Text style={{ fontSize: 20 }}>📖</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.accionTitle, { color: c.texto }]}>Manual de Usuario</Text>
+            <Text style={[styles.accionSub, { color: c.subtexto }]}>Aprende a usar la aplicación</Text>
+          </View>
+          <Text style={{ color: c.subtexto, fontSize: 20 }}>›</Text>
+        </TouchableOpacity>
         {/* Cambiar de club */}
         <TouchableOpacity
           style={[styles.card, styles.accionBtn, { borderColor: `${c.boton}40`, backgroundColor: `${c.boton}08` }]}
