@@ -158,7 +158,7 @@ export default function CalendarHeader({ nativeTopPad = true }: CalendarHeaderPr
 }
 
 const styles = StyleSheet.create({
-  headerRow: { paddingHorizontal: 16, paddingTop: 46, paddingBottom: 6 },
+  headerRow: { paddingHorizontal: 16, paddingTop: 90, paddingBottom: 6 },
   headerTitle: { fontSize: 22, fontWeight: "bold" },
   headerSub: { fontSize: 12, fontWeight: "500", marginBottom: 2 },
   exportBtn: {

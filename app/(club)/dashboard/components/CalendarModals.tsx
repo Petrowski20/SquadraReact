@@ -508,22 +508,31 @@ export default function CalendarModals() {
                           }
                           if (diff === 0) {
                             return (
-                              <TouchableOpacity
-                                style={[
-                                  styles.liveBtn,
-                                  { marginTop: 10, backgroundColor: "#16a34a" },
-                                ]}
-                                onPress={() => {
-                                  setDayModal(false);
-                                  router.push(
-                                    `/(club)/live-match/${item.id}?mode=LIVE`,
-                                  );
-                                }}
-                              >
-                                <Text style={styles.liveBtnText}>
-                                  🟢 Iniciar Partido (En Vivo)
-                                </Text>
-                              </TouchableOpacity>
+                              <View style={{ gap: 8, marginTop: 10 }}>
+                                <TouchableOpacity
+                                  style={[styles.liveBtn, { backgroundColor: "#16a34a" }]}
+                                  onPress={() => {
+                                    setDayModal(false);
+                                    router.push(`/(club)/live-match/${item.id}?mode=LIVE`);
+                                  }}
+                                >
+                                  <Text style={styles.liveBtnText}>🟢 Iniciar Partido (En Vivo)</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                  style={[
+                                    styles.liveBtn,
+                                    { backgroundColor: "transparent", borderWidth: 1, borderColor: "#6b7280" },
+                                  ]}
+                                  onPress={() => {
+                                    setDayModal(false);
+                                    router.push(`/(club)/live-match/${item.id}?mode=EDIT`);
+                                  }}
+                                >
+                                  <Text style={[styles.liveBtnText, { color: "#6b7280" }]}>
+                                    📊 Ver/Editar Estadísticas
+                                  </Text>
+                                </TouchableOpacity>
+                              </View>
                             );
                           }
                           return (

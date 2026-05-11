@@ -389,20 +389,29 @@ export function LiveMatchProvider({ children }: { children: React.ReactNode }) {
   const handleUndoEvent = (eventId: string) => {
     const event = matchEvents.find((e) => e.id === eventId);
     if (!event) return;
-    // Functional updater ensures we always operate on the latest stats snapshot
-    setStats((prev) =>
-      prev.map((p) => {
-        if (p.playerId !== event.playerId) return p;
-        switch (event.type) {
-          case "GOAL":        return { ...p, goals:       Math.max(0, p.goals - 1) };
-          case "ASSIST":      return { ...p, assists:     Math.max(0, p.assists - 1) };
-          case "YELLOW_CARD": return { ...p, yellowCards: Math.max(0, p.yellowCards - 1) };
-          case "RED_CARD":    return { ...p, redCards:    Math.max(0, p.redCards - 1) };
-          default:            return p; // SUB_IN/SUB_OUT: getStatus recalculates from events
-        }
-      }),
-    );
-    setMatchEvents((prev) => [...prev.filter((e) => e.id !== eventId)]);
+
+    // Compute updated stats locally so the API call uses the correct values
+    // without waiting for React to flush the state update.
+    const updatedStats = stats.map((p) => {
+      if (p.playerId !== event.playerId) return p;
+      switch (event.type) {
+        case "GOAL":        return { ...p, goals:       Math.max(0, p.goals - 1) };
+        case "ASSIST":      return { ...p, assists:     Math.max(0, p.assists - 1) };
+        case "YELLOW_CARD": return { ...p, yellowCards: Math.max(0, p.yellowCards - 1) };
+        case "RED_CARD":    return { ...p, redCards:    Math.max(0, p.redCards - 1) };
+        default:            return p; // SUB_IN/SUB_OUT: getStatus recalculates from events
+      }
+    });
+
+    setStats(updatedStats);
+    setMatchEvents((prev) => prev.filter((e) => e.id !== eventId));
+
+    // Auto-persist: fire-and-forget so the undo survives a page refresh
+    const entriesToSave = updatedStats.filter((p) => calledUpIds.has(p.playerId));
+    apiFetch(`/api/coach/match/${matchId}/stats/bulk?clubId=${clubId}`, {
+      method: "PUT",
+      body: JSON.stringify({ entries: entriesToSave }),
+    }).catch(() => {});
   };
 
   // ── Save stats ────────────────────────────────────────────────────────────

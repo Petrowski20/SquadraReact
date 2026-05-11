@@ -207,8 +207,7 @@ const styles = StyleSheet.create({
   leftPanel: {
     flex: 1,
     borderRightWidth: 1,
-    // paddingTop alineado con el paddingTop: 46 del CalendarHeader
-    paddingTop: 46,
+    paddingTop: 90,
   },
   leftPanelHeader: {
     paddingHorizontal: 16,

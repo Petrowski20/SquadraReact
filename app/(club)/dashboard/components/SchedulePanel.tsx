@@ -1,3 +1,4 @@
+import { useRouter } from "expo-router";
 import React, {
   useCallback,
   useEffect,
@@ -55,12 +56,15 @@ const EventCard = React.memo(function EventCard({
   event,
   showTeam,
   onPressLocation,
+  matchButtonMode,
 }: {
   event: CalendarEvent;
   showTeam: boolean;
   onPressLocation: (event: CalendarEvent) => void;
+  matchButtonMode?: "both" | "edit-only" | null;
 }) {
   const c = useTheme();
+  const router = useRouter();
   const isMatch = event.type === "MATCH";
   const borderColor = isMatch ? "#16a34a" : "#3b82f6";
   const isHome = parseIsHome(event);
@@ -152,6 +156,42 @@ const EventCard = React.memo(function EventCard({
           ) : null}
         </View>
       ) : null}
+
+      {/* Botones de partido en vivo (solo cuando ya es hoy o pasado) */}
+      {matchButtonMode ? (
+        <View style={{ gap: 6, marginTop: 10 }}>
+          {matchButtonMode === "both" && (
+            <TouchableOpacity
+              style={[styles.liveBtn, { backgroundColor: "#16a34a" }]}
+              onPress={() =>
+                router.push(`/(club)/live-match/${event.id}?mode=LIVE` as any)
+              }
+            >
+              <Text style={styles.liveBtnText}>🟢 Iniciar Partido</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            style={[
+              styles.liveBtn,
+              matchButtonMode === "both"
+                ? { backgroundColor: "transparent", borderWidth: 1, borderColor: "#6b7280" }
+                : { backgroundColor: "#2563eb" },
+            ]}
+            onPress={() =>
+              router.push(`/(club)/live-match/${event.id}?mode=EDIT` as any)
+            }
+          >
+            <Text
+              style={[
+                styles.liveBtnText,
+                { color: matchButtonMode === "both" ? "#6b7280" : "#fff" },
+              ]}
+            >
+              📊 Ver/Editar Estadísticas
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
     </View>
   );
 });
@@ -167,6 +207,7 @@ export default function SchedulePanel() {
     loading,
     fetchEvents,
     handleOpenMap,
+    canCreate,
   } = useDashboard();
 
   const [filtroTipo, setFiltroTipo] = useState<FiltroTipo>("TODOS");
@@ -274,14 +315,27 @@ export default function SchedulePanel() {
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: CalendarEvent }) => (
-      <EventCard
-        event={item}
-        showTeam={selectedTeamId === null}
-        onPressLocation={handleOpenMap}
-      />
-    ),
-    [selectedTeamId, handleOpenMap],
+    ({ item }: { item: CalendarEvent }) => {
+      let matchButtonMode: "both" | "edit-only" | null = null;
+      if (item.type === "MATCH" && canCreate) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const matchDay = new Date(item.startTime);
+        matchDay.setHours(0, 0, 0, 0);
+        const diff = matchDay.getTime() - today.getTime();
+        if (diff === 0) matchButtonMode = "both";
+        else if (diff < 0) matchButtonMode = "edit-only";
+      }
+      return (
+        <EventCard
+          event={item}
+          showTeam={selectedTeamId === null}
+          onPressLocation={handleOpenMap}
+          matchButtonMode={matchButtonMode}
+        />
+      );
+    },
+    [selectedTeamId, handleOpenMap, canCreate],
   );
 
   const keyExtractor = useCallback(
@@ -454,4 +508,10 @@ const styles = StyleSheet.create({
     borderStyle: "dashed",
     alignItems: "center",
   },
+  liveBtn: {
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  liveBtnText: { color: "#fff", fontWeight: "800", fontSize: 13 },
 });

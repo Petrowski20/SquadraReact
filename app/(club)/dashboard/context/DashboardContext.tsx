@@ -268,6 +268,11 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedDayEvents, setSelectedDayEvents] = useState<CalendarEvent[]>([]);
+  // Ref para leer selectedDate dentro de fetchEvents sin añadirlo a sus deps
+  const selectedDateRef = useRef<string | null>(null);
+  useEffect(() => {
+    selectedDateRef.current = selectedDate;
+  }, [selectedDate]);
 
   // ─── Modal visibility ───────────────────────────────────────────────────
   const [dayModal, setDayModal] = useState(false);
@@ -338,6 +343,17 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       );
       const data: CalendarEvent[] = await res.json();
       setEvents(data);
+      // Auto-selecciona el próximo evento solo en la carga inicial (selectedDate === null)
+      if (selectedDateRef.current === null && data.length > 0) {
+        const todayMidnight = new Date();
+        todayMidnight.setHours(0, 0, 0, 0);
+        const sorted = [...data].sort(
+          (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
+        );
+        const next = sorted.find((e) => new Date(e.startTime) >= todayMidnight);
+        const target = next ?? sorted[sorted.length - 1];
+        setSelectedDate(toDateString(new Date(target.startTime)));
+      }
     } catch {
       Alert.alert("Error", "No se pudieron cargar los eventos.");
     } finally {
