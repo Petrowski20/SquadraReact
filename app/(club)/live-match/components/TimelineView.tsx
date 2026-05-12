@@ -1,5 +1,5 @@
 import React from "react";
-import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useTheme } from "../../../../lib/useTheme";
 import { useLiveMatch } from "../context/LiveMatchContext";
 import { s } from "../styles";
@@ -47,12 +47,7 @@ export default function TimelineView() {
                 )}
               </View>
               <TouchableOpacity
-                onPress={() =>
-                  Alert.alert("Deshacer", "¿Quitar este evento?", [
-                    { text: "Cancelar", style: "cancel" },
-                    { text: "Deshacer", style: "destructive", onPress: () => handleUndoEvent(event.id) },
-                  ])
-                }
+                onPress={() => handleUndoEvent(event.id)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <Text style={{ fontSize: 16, color: "#ef4444" }}>✕</Text>

@@ -249,6 +249,12 @@ export function LiveMatchProvider({ children }: { children: React.ReactNode }) {
 
       setCalledUpIds(calledUp);
       setStats(statsData);
+
+      // En modo LIVE: si ya hay titulares confirmados (partido retomado), ir directo
+      // al campo. Si no hay ninguno, forzar paso de titulares.
+      if (isLive) {
+        setStep(statsData.some((p) => p.wasStarter) ? "stats" : "callups");
+      }
     } catch {
       Alert.alert("Error", "Error de red al cargar el partido.");
     } finally {
@@ -390,6 +396,11 @@ export function LiveMatchProvider({ children }: { children: React.ReactNode }) {
     const event = matchEvents.find((e) => e.id === eventId);
     if (!event) return;
 
+    // Las sustituciones generan dos eventos vinculados (${ts}-out / ${ts}-in).
+    // Borrar solo uno dejaría al otro huérfano, rompiendo getStatus.
+    const isSub = event.type === "SUB_IN" || event.type === "SUB_OUT";
+    const baseId = event.id.split("-")[0];
+
     // Compute updated stats locally so the API call uses the correct values
     // without waiting for React to flush the state update.
     const updatedStats = stats.map((p) => {
@@ -404,14 +415,20 @@ export function LiveMatchProvider({ children }: { children: React.ReactNode }) {
     });
 
     setStats(updatedStats);
-    setMatchEvents((prev) => prev.filter((e) => e.id !== eventId));
+    // Spread explícito para garantizar nueva referencia y forzar re-render del Timeline
+    setMatchEvents((prev) => [
+      ...prev.filter((e) => isSub ? !e.id.startsWith(baseId) : e.id !== eventId),
+    ]);
 
-    // Auto-persist: fire-and-forget so the undo survives a page refresh
+    // Persiste los contadores corregidos en el backend; sin esto los stats
+    // del evento "deshecho" sobreviven a una recarga.
     const entriesToSave = updatedStats.filter((p) => calledUpIds.has(p.playerId));
     apiFetch(`/api/coach/match/${matchId}/stats/bulk?clubId=${clubId}`, {
       method: "PUT",
       body: JSON.stringify({ entries: entriesToSave }),
-    }).catch(() => {});
+    }).catch(() => {
+      Alert.alert("Aviso", "No se pudo sincronizar el cambio con el servidor.");
+    });
   };
 
   // ── Save stats ────────────────────────────────────────────────────────────

@@ -1,3 +1,4 @@
+import { useRouter } from "expo-router";
 import React from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useTheme } from "../../../../lib/useTheme";
@@ -12,6 +13,7 @@ import { s } from "../styles";
 
 export default function CallupsStep() {
   const c = useTheme();
+  const router = useRouter();
   const { visibleStats, selectedFormation, setSelectedFormation, setStep, updateStat } =
     useLiveMatch();
 
@@ -102,11 +104,17 @@ export default function CallupsStep() {
       </View>
 
       {visibleStats.length === 0 && (
-        <View style={s.empty}>
-          <Text style={{ fontSize: 28 }}>📋</Text>
-          <Text style={{ color: c.subtexto, marginTop: 8 }}>
-            No hay jugadores convocados.
+        <View style={[s.empty, { paddingVertical: 48 }]}>
+          <Text style={{ fontSize: 40 }}>📋</Text>
+          <Text style={{ color: c.subtexto, marginTop: 12, marginBottom: 24, textAlign: "center", fontSize: 15 }}>
+            No hay jugadores convocados para este partido.
           </Text>
+          <TouchableOpacity
+            style={[s.primaryBtn, { backgroundColor: "#2563eb", paddingHorizontal: 24, marginTop: 0 }]}
+            onPress={() => router.push("/(club)/gestion-coach")}
+          >
+            <Text style={s.primaryBtnText}>Ir a gestionar convocatoria</Text>
+          </TouchableOpacity>
         </View>
       )}
 

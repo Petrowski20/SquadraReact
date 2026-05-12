@@ -196,6 +196,9 @@ const EventCard = React.memo(function EventCard({
   );
 });
 
+// ─── Viewability config (must be stable — defined outside component) ──────────
+const VIEWABILITY_CONFIG = { itemVisiblePercentThreshold: 50 };
+
 // ─── SchedulePanel ────────────────────────────────────────────────────────────
 
 export default function SchedulePanel() {
@@ -203,6 +206,7 @@ export default function SchedulePanel() {
   const {
     events,
     selectedDate,
+    setSelectedDate,
     selectedTeamId,
     loading,
     fetchEvents,
@@ -218,6 +222,13 @@ export default function SchedulePanel() {
   const pendingScrollDate = useRef<string | null>(null);
   // Última fecha a la que scrolleamos: evita re-scroll cuando cambia filtroTipo
   const lastScrolledDate = useRef<string | null>(null);
+  // Bloquea onViewableItemsChanged durante scroll programático para evitar bucle
+  const isScrollingProgrammatically = useRef<boolean>(false);
+  // Indica que selectedDate fue cambiado por scroll manual → bloquea el useEffect de scroll
+  const isManualScrollUpdate = useRef<boolean>(false);
+  // Ref espejo de selectedDate para que handleViewableItemsChanged sea estable
+  const selectedDateRef = useRef<string | null>(selectedDate);
+  useEffect(() => { selectedDateRef.current = selectedDate; }, [selectedDate]);
 
   // ─── Secciones (agrupadas por día, filtradas por tipo) ────────────────────
   const sections = useMemo<EventSection[]>(() => {
@@ -252,27 +263,54 @@ export default function SchedulePanel() {
 
   // ─── Scroll programático al día seleccionado ──────────────────────────────
   useEffect(() => {
-    // Si no hay fecha o ya hicimos scroll a esta misma fecha, no hacemos nada.
-    // Esto evita que un cambio de filtroTipo (que recalcula sectionIndexMap)
-    // dispare un re-scroll indeseado.
+    if (isManualScrollUpdate.current) {
+      isManualScrollUpdate.current = false;
+      return;
+    }
     if (!selectedDate || selectedDate === lastScrolledDate.current) return;
 
     const sectionIndex = sectionIndexMap.get(selectedDate);
 
-    // Si el día seleccionado no tiene eventos en la vista actual → silencio.
-    // Crashear el scroll a una sección inexistente sería peor que no scrollear.
-    if (sectionIndex === undefined) return;
+    if (sectionIndex === undefined) {
+      // Hoy no tiene eventos: buscamos la sección con fecha más cercana
+      // comparando timestamps para no depender del orden del array.
+      if (sections.length === 0) return;
+      const targetTime = new Date(selectedDate).getTime();
+      let closestIdx = 0;
+      let minDiff = Infinity;
+      sections.forEach((section, idx) => {
+        const diff = Math.abs(new Date(section.title).getTime() - targetTime);
+        if (diff < minDiff) { minDiff = diff; closestIdx = idx; }
+      });
+      lastScrolledDate.current = selectedDate;
+      pendingScrollDate.current = sections[closestIdx].title;
+      isScrollingProgrammatically.current = true;
+      setTimeout(() => {
+        sectionListRef.current?.scrollToLocation({
+          sectionIndex: closestIdx,
+          itemIndex: 0,
+          animated: true,
+          viewOffset: 0,
+        });
+        setTimeout(() => { isScrollingProgrammatically.current = false; }, 500);
+      }, 100);
+      return;
+    }
 
     lastScrolledDate.current = selectedDate;
     pendingScrollDate.current = selectedDate;
+    isScrollingProgrammatically.current = true;
 
-    sectionListRef.current?.scrollToLocation({
-      sectionIndex,
-      itemIndex: 0,
-      animated: true,
-      viewOffset: 0,
-    });
-  }, [selectedDate, sectionIndexMap]);
+    setTimeout(() => {
+      sectionListRef.current?.scrollToLocation({
+        sectionIndex,
+        itemIndex: 0,
+        animated: true,
+        viewOffset: 0,
+      });
+      setTimeout(() => { isScrollingProgrammatically.current = false; }, 500);
+    }, 100);
+  }, [selectedDate, sectionIndexMap, sections]);
 
   // ─── Fallback cuando el item aún no está renderizado (fuera del viewport) ─
   const handleScrollToIndexFailed = useCallback(() => {
@@ -298,6 +336,22 @@ export default function SchedulePanel() {
       });
     }, 200);
   }, [sectionIndexMap]);
+
+  // ─── Sincronización Scroll → Calendario ──────────────────────────────────
+  const handleViewableItemsChanged = useCallback(
+    ({ viewableItems }: { viewableItems: any[] }) => {
+      if (isScrollingProgrammatically.current) return;
+      // Los section-headers no tienen `.section`; buscamos el primer item de datos
+      const first = viewableItems.find((v) => v.section != null);
+      if (!first) return;
+      const date: string = first.section.title;
+      if (date !== selectedDateRef.current) {
+        isManualScrollUpdate.current = true;
+        setSelectedDate(date);
+      }
+    },
+    [setSelectedDate],
+  );
 
   // ─── Render helpers ───────────────────────────────────────────────────────
 
@@ -421,6 +475,10 @@ export default function SchedulePanel() {
           renderSectionHeader={renderSectionHeader}
           ListEmptyComponent={ListEmptyComponent}
           onScrollToIndexFailed={handleScrollToIndexFailed}
+          onViewableItemsChanged={handleViewableItemsChanged}
+          viewabilityConfig={VIEWABILITY_CONFIG}
+          initialNumToRender={50}
+          windowSize={10}
           stickySectionHeadersEnabled
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContent}

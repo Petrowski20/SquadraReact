@@ -339,20 +339,21 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       const to = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
       const teamParam = selectedTeamId ? `&teamId=${selectedTeamId}` : "";
       const res = await apiFetch(
-        `/api/calendar?clubId=${clubId}&seasonLabel=${currentSeasonLabel}${teamParam}&from=${from}&to=${to}`,
+        `/api/calendar?clubId=${clubId}&seasonLabel=${currentSeasonLabel}${teamParam}&from=${from}&to=${to}&_t=${Date.now()}`,
       );
       const data: CalendarEvent[] = await res.json();
-      setEvents(data);
-      // Auto-selecciona el próximo evento solo en la carga inicial (selectedDate === null)
-      if (selectedDateRef.current === null && data.length > 0) {
-        const todayMidnight = new Date();
-        todayMidnight.setHours(0, 0, 0, 0);
-        const sorted = [...data].sort(
-          (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
-        );
-        const next = sorted.find((e) => new Date(e.startTime) >= todayMidnight);
-        const target = next ?? sorted[sorted.length - 1];
-        setSelectedDate(toDateString(new Date(target.startTime)));
+      setEvents([...data]);
+      // En la carga inicial (selectedDate === null) fija la fecha local de hoy.
+      // Construimos YYYY-MM-DD desde los componentes locales para evitar el offset UTC de toISOString.
+      if (selectedDateRef.current === null) {
+        const now = new Date();
+        const localToday =
+          now.getFullYear() +
+          "-" +
+          String(now.getMonth() + 1).padStart(2, "0") +
+          "-" +
+          String(now.getDate()).padStart(2, "0");
+        setSelectedDate(localToday);
       }
     } catch {
       Alert.alert("Error", "No se pudieron cargar los eventos.");
@@ -377,20 +378,11 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   }, [clubId, canCreate]);
 
-  const isMountedRef = useRef(false);
   useFocusEffect(
     useCallback(() => {
-      if (!isMountedRef.current) {
-        isMountedRef.current = true;
-        return;
-      }
-      let isActive = true;
       fetchTeams();
       fetchFields();
       fetchEvents();
-      return () => {
-        isActive = false;
-      };
     }, [fetchTeams, fetchFields, fetchEvents]),
   );
 
