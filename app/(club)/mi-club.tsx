@@ -33,7 +33,6 @@ const POSICION_COLOR: Record<string, string> = {
   FORWARD: "#16a34a",
 };
 
-// Orden táctico: portero → defensa → centrocampista → delantero
 const POSICION_ORDEN: Record<string, number> = {
   GOALKEEPER: 1,
   DEFENDER:   2,
@@ -41,7 +40,6 @@ const POSICION_ORDEN: Record<string, number> = {
   FORWARD:    4,
 };
 
-// Jerarquía de rol de staff (enum StaffRoleType del backend)
 const STAFF_ROL_ORDEN: Record<string, number> = {
   HEAD_COACH:      1,
   ASSISTANT:       2,
@@ -62,13 +60,11 @@ const STAFF_ROL_LABEL: Record<string, string> = {
 
 function parseBirthDate(s: string | null | undefined): number {
   if (!s) return NaN;
-  // Soporta DD/MM/YYYY y YYYY-MM-DD (u otros formatos aceptados por Date)
   const ddmmyyyy = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   if (ddmmyyyy) return new Date(`${ddmmyyyy[3]}-${ddmmyyyy[2]}-${ddmmyyyy[1]}`).getTime();
   return new Date(s).getTime();
 }
 
-/** Avatar reutilizable: muestra imagen si existe, o silueta de usuario como icono */
 function Avatar({
   photoUrl,
   initials: _initials,
@@ -83,7 +79,6 @@ function Avatar({
   borderColor?: string;
 }) {
   const borderRadius = size * 0.25;
-
   return (
     <View
       style={[
@@ -156,21 +151,15 @@ export default function MiClub() {
         : { key, direction: "asc" }
     );
 
-  // ── CARGAR EQUIPOS ───────────────────────────────────────────────────────
   useEffect(() => {
     async function loadTeams() {
-      if (!clubId) {
-        setLoading(false);
-        return;
-      }
+      if (!clubId) { setLoading(false); return; }
       try {
         const res = await apiFetch(`/api/club/equipos/${clubId}`);
         if (res.ok) {
           const json = await res.json();
           setTeams(json);
-          if (!selectedTeamId && json.length > 0) {
-            setSelectedTeamId(json[0].id);
-          }
+          if (!selectedTeamId && json.length > 0) setSelectedTeamId(json[0].id);
         }
       } catch (e) {
         console.error("Error cargando equipos:", e);
@@ -181,20 +170,16 @@ export default function MiClub() {
     loadTeams();
   }, [clubId]);
 
-  // ── CARGAR DETALLE ───────────────────────────────────────────────────────
   useEffect(() => {
     if (!selectedTeamId || !seasonLabel) return;
     setLoading(true);
-    apiFetch(
-      `/api/club/detalle/${selectedTeamId}?clubId=${clubId}&seasonLabel=${seasonLabel}`
-    )
+    apiFetch(`/api/club/detalle/${selectedTeamId}?clubId=${clubId}&seasonLabel=${seasonLabel}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((json) => setData(json))
       .catch(() => setData(null))
       .finally(() => setLoading(false));
   }, [selectedTeamId, seasonLabel]);
 
-  // ── FICHA DETALLE (solo presidente / entrenador) ──────────────────────────
   const openDetail = (person: any, isStaff = false) => {
     setDetailPerson(person);
     setDetailIsStaff(isStaff);
@@ -203,7 +188,6 @@ export default function MiClub() {
 
   const closeDetail = () => setDetailModal(false);
 
-  // ── ESTADÍSTICAS ─────────────────────────────────────────────────────────
   const openStats = async (jugador: any) => {
     setSelectedPlayer(jugador);
     setPlayerStats(null);
@@ -227,7 +211,6 @@ export default function MiClub() {
     Alert.alert("¡Copiado!", "El código de invitación se ha copiado al portapapeles.");
   };
 
-  // ── LISTAS ORDENADAS ────────────────────────────────────────────────────
   const sortedPlantilla = useMemo(() => {
     const list: any[] = data?.plantilla ?? [];
     return [...list].sort((a, b) => {
@@ -237,7 +220,6 @@ export default function MiClub() {
       } else if (playerSort.key === "NAME") {
         result = `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
       } else {
-        // BIRTH_DATE — comparación cronológica real; fechas nulas siempre al final
         const ta = parseBirthDate(a.birthDate);
         const tb = parseBirthDate(b.birthDate);
         if (isNaN(ta) && isNaN(tb)) return 0;
@@ -262,7 +244,6 @@ export default function MiClub() {
     });
   }, [data?.staff, staffSort]);
 
-  // ── GUARDS ───────────────────────────────────────────────────────────────
   if (loading && !data)
     return <ActivityIndicator style={{ flex: 1 }} color={c.boton} />;
 
@@ -270,9 +251,7 @@ export default function MiClub() {
     return (
       <View style={[styles.emptyWrap, { backgroundColor: c.fondo }]}>
         <Text style={{ fontSize: 40 }}>🏟️</Text>
-        <Text style={[styles.emptyTitle, { color: c.texto }]}>
-          Tu club está vacío
-        </Text>
+        <Text style={[styles.emptyTitle, { color: c.texto }]}>Tu club está vacío</Text>
         <Text style={[styles.emptySub, { color: c.subtexto }]}>
           Ve a Gestión para crear tu primer equipo y empezar a añadir jugadores.
         </Text>
@@ -290,20 +269,30 @@ export default function MiClub() {
     );
   }
 
+  // ── Chips de info: se construyen como objetos con id único ────────────────
+  // ANTES usaban el label como key → colisión si dos chips comparten emoji (👥)
+  const infoChips = [
+    { id: "chip-categoria", label: `🏷 ${data.categoria}` },
+    {
+      id: "chip-genero",
+      label:
+        data.genero === "MALE"
+          ? "👦 Masculino"
+          : data.genero === "FEMALE"
+          ? "👧 Femenino"
+          : "👥 Mixto",
+    },
+    { id: "chip-jugadores", label: `👥 ${data.plantilla?.length || 0} jugadores` },
+  ];
+
   return (
     <ScreenContainer>
       <View style={{ flex: 1, backgroundColor: c.fondo }}>
-        {/* ─── SELECTOR DE EQUIPO ────────────────────────────────────────── */}
+
+        {/* ─── SELECTOR DE EQUIPO ──────────────────────────────────────── */}
         {teams.length > 0 && (
-          <View
-            style={[
-              styles.selectorWrap,
-              { borderBottomColor: c.bordeInput },
-            ]}
-          >
-            <Text style={[styles.selectorLabel, { color: c.subtexto }]}>
-              Equipo
-            </Text>
+          <View style={[styles.selectorWrap, { borderBottomColor: c.bordeInput }]}>
+            <Text style={[styles.selectorLabel, { color: c.subtexto }]}>Equipo</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -312,8 +301,10 @@ export default function MiClub() {
               {teams.map((t: any) => {
                 const selected = selectedTeamId === t.id;
                 return (
+                  // FIX: prefijo "team-" evita colisión si el mismo id
+                  // aparece también en otras listas de la pantalla.
                   <TouchableOpacity
-                    key={t.id}
+                    key={`team-${t.id}`}
                     style={[
                       styles.teamChip,
                       {
@@ -345,7 +336,7 @@ export default function MiClub() {
           contentContainerStyle={styles.container}
           showsVerticalScrollIndicator={false}
         >
-          {/* ─── HEADER DEL CLUB ─────────────────────────────────────────── */}
+          {/* ─── HEADER DEL CLUB ───────────────────────────────────────── */}
           <View style={styles.header}>
             <Avatar
               photoUrl={data.logoUrl}
@@ -354,84 +345,61 @@ export default function MiClub() {
               color={c.boton}
             />
             <View style={styles.clubInfo}>
-              <Text style={[styles.clubNombre, { color: c.texto }]}>
-                {data.nombre}
-              </Text>
+              <Text style={[styles.clubNombre, { color: c.texto }]}>{data.nombre}</Text>
               <Text style={[styles.clubMeta, { color: c.subtexto }]}>
                 {data.equipo} · {data.temporada}
               </Text>
             </View>
           </View>
 
-          {/* Código de invitación — solo presidente y staff */}
+          {/* Código de invitación */}
           {canSeeInvitationCode && (
-            <View
-              style={[
-                styles.codigoCard,
-                { backgroundColor: c.input, borderColor: c.bordeInput },
-              ]}
-            >
+            <View style={[styles.codigoCard, { backgroundColor: c.input, borderColor: c.bordeInput }]}>
               <View>
-                <Text style={[styles.codigoLabel, { color: c.subtexto }]}>
-                  CÓDIGO DE INVITACIÓN
-                </Text>
+                <Text style={[styles.codigoLabel, { color: c.subtexto }]}>CÓDIGO DE INVITACIÓN</Text>
                 <Text style={[styles.codigoValue, { color: c.boton }]}>
                   {data.codigoInvitacion || "---"}
                 </Text>
               </View>
               <TouchableOpacity
                 onPress={() => copyCode(data.codigoInvitacion)}
-                style={[
-                  styles.copiarButton,
-                  {
-                    backgroundColor: `${c.boton}18`,
-                    borderColor: `${c.boton}35`,
-                  },
-                ]}
+                style={[styles.copiarButton, { backgroundColor: `${c.boton}18`, borderColor: `${c.boton}35` }]}
               >
-                <Text style={[styles.copiarText, { color: c.boton }]}>
-                  📋 Copiar
-                </Text>
+                <Text style={[styles.copiarText, { color: c.boton }]}>📋 Copiar</Text>
               </TouchableOpacity>
             </View>
           )}
 
-          {/* Chips */}
+          {/* Chips de info
+              FIX: key usa id único en lugar del label (evitaba colisión entre
+              "👥 Mixto" y "👥 N jugadores" cuando ambos compartían emoji). */}
           <View style={styles.chipsRow}>
-            {[
-              `🏷 ${data.categoria}`,
-              data.genero === "MALE"
-                ? "👦 Masculino"
-                : data.genero === "FEMALE"
-                ? "👧 Femenino"
-                : "👥 Mixto",
-              `👥 ${data.plantilla?.length || 0} jugadores`,
-            ].map((label) => (
+            {infoChips.map(({ id, label }) => (
               <View
-                key={label}
-                style={[
-                  styles.chip,
-                  { backgroundColor: c.input, borderColor: c.bordeInput },
-                ]}
+                key={id}
+                style={[styles.chip, { backgroundColor: c.input, borderColor: c.bordeInput }]}
               >
-                <Text style={[styles.chipText, { color: c.subtexto }]}>
-                  {label}
-                </Text>
+                <Text style={[styles.chipText, { color: c.subtexto }]}>{label}</Text>
               </View>
             ))}
           </View>
 
-          {/* ─── STAFF ───────────────────────────────────────────────────── */}
+          {/* ─── STAFF ─────────────────────────────────────────────────── */}
           <View style={styles.sectionHeaderRow}>
             <Text style={[styles.sectionTitle, { color: c.texto, marginBottom: 0 }]}>
               🎽 Staff técnico
             </Text>
             <View style={styles.sortChipsRow}>
-              {([{ value: "ROLE" as const, label: "Rol" }, { value: "NAME" as const, label: "A-Z" }]).map(({ value, label }) => {
+              {([
+                { value: "ROLE" as const, label: "Rol" },
+                { value: "NAME" as const, label: "A-Z" },
+              ]).map(({ value, label }) => {
                 const active = staffSort.key === value;
                 return (
+                  // FIX: prefijo "staff-sort-" para no colisionar con los
+                  // chips de orden de jugadores si React evalúa en el mismo nivel.
                   <TouchableOpacity
-                    key={value}
+                    key={`staff-sort-${value}`}
                     style={[styles.sortChip, {
                       backgroundColor: active ? `${c.boton}20` : c.input,
                       borderColor:     active ? c.boton : c.bordeInput,
@@ -446,15 +414,15 @@ export default function MiClub() {
               })}
             </View>
           </View>
+
           {data.staff?.length > 0 ? (
             <View style={styles.staffList}>
               {sortedStaff.map((m: any) => (
+                // FIX: prefijo "staff-" → evita colisión con jugadores que
+                // comparten el mismo id numérico (misma tabla Person en BBDD).
                 <TouchableOpacity
-                  key={m.id}
-                  style={[
-                    styles.staffCard,
-                    { backgroundColor: c.input, borderColor: c.bordeInput },
-                  ]}
+                  key={`staff-${m.id}`}
+                  style={[styles.staffCard, { backgroundColor: c.input, borderColor: c.bordeInput }]}
                   onPress={canOpenMemberDetail ? () => openDetail(m, true) : undefined}
                   activeOpacity={canOpenMemberDetail ? 0.8 : 1}
                 >
@@ -469,9 +437,7 @@ export default function MiClub() {
                       {m.firstName} {m.lastName}
                     </Text>
                     {m.phone && (
-                      <Text style={[styles.staffPhone, { color: c.subtexto }]}>
-                        📞 {m.phone}
-                      </Text>
+                      <Text style={[styles.staffPhone, { color: c.subtexto }]}>📞 {m.phone}</Text>
                     )}
                     {m.staffRole && (
                       <Text style={[styles.staffPhone, { color: c.subtexto }]}>
@@ -486,12 +452,10 @@ export default function MiClub() {
               ))}
             </View>
           ) : (
-            <Text style={[styles.emptyText, { color: c.subtexto }]}>
-              Sin staff registrado
-            </Text>
+            <Text style={[styles.emptyText, { color: c.subtexto }]}>Sin staff registrado</Text>
           )}
 
-          {/* ─── PLANTILLA ─────────────────────────────────────────────────── */}
+          {/* ─── PLANTILLA ───────────────────────────────────────────────── */}
           <View style={[styles.sectionHeaderRow, { marginTop: 24 }]}>
             <Text style={[styles.sectionTitle, { color: c.texto, marginBottom: 0 }]}>
               ⚽ Plantilla
@@ -504,8 +468,9 @@ export default function MiClub() {
               ]).map(({ value, label }) => {
                 const active = playerSort.key === value;
                 return (
+                  // FIX: prefijo "player-sort-"
                   <TouchableOpacity
-                    key={value}
+                    key={`player-sort-${value}`}
                     style={[styles.sortChip, {
                       backgroundColor: active ? `${c.boton}20` : c.input,
                       borderColor:     active ? c.boton : c.bordeInput,
@@ -520,6 +485,7 @@ export default function MiClub() {
               })}
             </View>
           </View>
+
           {data.plantilla?.length > 0 ? (
             <View style={styles.jugadoresList}>
               {sortedPlantilla.map((j: any) => {
@@ -527,15 +493,11 @@ export default function MiClub() {
                 const hasValidConsent = j.imageConsentSeason === seasonLabel;
                 const playerPhotoUrl = hasValidConsent ? j.photoUrl : null;
                 return (
+                  // FIX: prefijo "player-" → nunca colisionará con "staff-{id}"
+                  // aunque ambos compartan el mismo número de id en la BBDD.
                   <TouchableOpacity
-                    key={j.id}
-                    style={[
-                      styles.jugadorCard,
-                      {
-                        backgroundColor: c.input,
-                        borderColor: c.bordeInput,
-                      },
-                    ]}
+                    key={`player-${j.id}`}
+                    style={[styles.jugadorCard, { backgroundColor: c.input, borderColor: c.bordeInput }]}
                     onPress={canOpenMemberDetail ? () => openDetail(j, false) : undefined}
                     activeOpacity={canOpenMemberDetail ? 0.8 : 1}
                     accessibilityLabel={`${j.firstName} ${j.lastName}, ${POSICION_LABEL[j.position] || "Jugador"}`}
@@ -547,40 +509,23 @@ export default function MiClub() {
                       color={posColor}
                     />
                     <View style={styles.jugadorInfo}>
-                      <Text
-                        style={[styles.jugadorNombre, { color: c.texto }]}
-                      >
+                      <Text style={[styles.jugadorNombre, { color: c.texto }]}>
                         {j.firstName} {j.lastName}
                       </Text>
                       <View style={styles.jugadorMeta}>
                         {j.birthDate && (
-                          <Text
-                            style={[
-                              styles.jugadorMetaText,
-                              { color: c.subtexto },
-                            ]}
-                          >
+                          <Text style={[styles.jugadorMetaText, { color: c.subtexto }]}>
                             🎂 {j.birthDate}
                           </Text>
                         )}
                         {j.kitSize && (
-                          <Text
-                            style={[
-                              styles.jugadorMetaText,
-                              { color: c.subtexto },
-                            ]}
-                          >
+                          <Text style={[styles.jugadorMetaText, { color: c.subtexto }]}>
                             👕 {j.kitSize}
                           </Text>
                         )}
                       </View>
                       {j.docNumber && (
-                        <Text
-                          style={[
-                            styles.jugadorMetaText,
-                            { color: c.subtexto, marginTop: 2 },
-                          ]}
-                        >
+                        <Text style={[styles.jugadorMetaText, { color: c.subtexto, marginTop: 2 }]}>
                           🪪 {j.docType || "DOC"}: {j.docNumber}
                         </Text>
                       )}
@@ -589,30 +534,18 @@ export default function MiClub() {
                       <View
                         style={[
                           styles.dorsalBadge,
-                          {
-                            backgroundColor: `${posColor}18`,
-                            borderColor: `${posColor}35`,
-                          },
+                          { backgroundColor: `${posColor}18`, borderColor: `${posColor}35` },
                         ]}
                       >
-                        <Text
-                          style={[styles.dorsalText, { color: posColor }]}
-                        >
+                        <Text style={[styles.dorsalText, { color: posColor }]}>
                           #{j.jerseyNumber || "?"}
                         </Text>
                       </View>
-                      <Text
-                        style={[
-                          styles.posicionText,
-                          { color: c.subtexto },
-                        ]}
-                      >
+                      <Text style={[styles.posicionText, { color: c.subtexto }]}>
                         {POSICION_LABEL[j.position] || "Jugador"}
                       </Text>
                       {canOpenMemberDetail && (
-                        <Text style={[styles.statsHint, { color: c.boton }]}>
-                          ⋯
-                        </Text>
+                        <Text style={[styles.statsHint, { color: c.boton }]}>⋯</Text>
                       )}
                     </View>
                   </TouchableOpacity>
@@ -620,13 +553,11 @@ export default function MiClub() {
               })}
             </View>
           ) : (
-            <Text style={[styles.emptyText, { color: c.subtexto }]}>
-              Sin jugadores registrados
-            </Text>
+            <Text style={[styles.emptyText, { color: c.subtexto }]}>Sin jugadores registrados</Text>
           )}
         </ScrollView>
 
-        {/* ─── FICHA DETALLE (centrada, presidente / entrenador) ─────────── */}
+        {/* ─── FICHA DETALLE ─────────────────────────────────────────────── */}
         <Modal
           visible={detailModal}
           transparent
@@ -635,26 +566,21 @@ export default function MiClub() {
         >
           <Pressable style={styles.overlayCenter} onPress={closeDetail}>
             <Pressable
-              style={[
-                styles.detailCard,
-                { backgroundColor: c.fondo, borderColor: c.bordeInput },
-              ]}
+              style={[styles.detailCard, { backgroundColor: c.fondo, borderColor: c.bordeInput }]}
               onPress={() => {}}
             >
-              {/* Botón cerrar */}
               <TouchableOpacity style={styles.detailClose} onPress={closeDetail}>
-                <Text style={{ color: c.subtexto, fontSize: 18, fontWeight: "600" }}>
-                  ✕
-                </Text>
+                <Text style={{ color: c.subtexto, fontSize: 18, fontWeight: "600" }}>✕</Text>
               </TouchableOpacity>
 
-              {/* Avatar grande */}
               <View style={styles.detailAvatarWrap}>
                 <Avatar
                   photoUrl={
                     detailIsStaff
                       ? detailPerson?.photoUrl
-                      : (detailPerson?.imageConsentSeason === seasonLabel ? detailPerson?.photoUrl : null)
+                      : detailPerson?.imageConsentSeason === seasonLabel
+                      ? detailPerson?.photoUrl
+                      : null
                   }
                   initials={detailPerson?.firstName?.charAt(0) || "?"}
                   size={72}
@@ -666,12 +592,10 @@ export default function MiClub() {
                 />
               </View>
 
-              {/* Nombre */}
               <Text style={[styles.detailNombre, { color: c.texto }]}>
                 {detailPerson?.firstName} {detailPerson?.lastName}
               </Text>
 
-              {/* Chip de rol / posición */}
               {detailIsStaff ? (
                 detailPerson?.staffRole ? (
                   <View
@@ -707,10 +631,8 @@ export default function MiClub() {
                 </View>
               )}
 
-              {/* Separador */}
               <View style={[styles.detailDivider, { backgroundColor: c.bordeInput }]} />
 
-              {/* Datos */}
               <View style={styles.detailRows}>
                 {detailIsStaff ? (
                   <>
@@ -773,17 +695,10 @@ export default function MiClub() {
                 )}
               </View>
 
-              {/* Botón estadísticas — solo jugadores */}
               {!detailIsStaff && (
                 <TouchableOpacity
-                  style={[
-                    styles.detailStatsBtn,
-                    { backgroundColor: c.boton },
-                  ]}
-                  onPress={() => {
-                    closeDetail();
-                    openStats(detailPerson);
-                  }}
+                  style={[styles.detailStatsBtn, { backgroundColor: c.boton }]}
+                  onPress={() => { closeDetail(); openStats(detailPerson); }}
                   activeOpacity={0.8}
                 >
                   <Text style={styles.detailStatsBtnText}>📊 Ver estadísticas</Text>
@@ -793,22 +708,16 @@ export default function MiClub() {
           </Pressable>
         </Modal>
 
-        {/* ─── MODAL ESTADÍSTICAS ────────────────────────────────────────── */}
+        {/* ─── MODAL ESTADÍSTICAS ──────────────────────────────────────── */}
         <Modal
           visible={statsModal}
           transparent
           animationType="slide"
           onRequestClose={() => setStatsModal(false)}
         >
-          <Pressable
-            style={styles.overlay}
-            onPress={() => setStatsModal(false)}
-          >
+          <Pressable style={styles.overlay} onPress={() => setStatsModal(false)}>
             <Pressable
-              style={[
-                styles.statsCard,
-                { backgroundColor: c.fondo, borderColor: c.bordeInput },
-              ]}
+              style={[styles.statsCard, { backgroundColor: c.fondo, borderColor: c.bordeInput }]}
               onPress={() => {}}
             >
               <View style={styles.statsHeader}>
@@ -827,76 +736,31 @@ export default function MiClub() {
               </View>
 
               {loadingStats ? (
-                <ActivityIndicator
-                  color={c.boton}
-                  style={{ marginVertical: 30 }}
-                />
+                <ActivityIndicator color={c.boton} style={{ marginVertical: 30 }} />
               ) : playerStats ? (
                 <>
-                  <Text
-                    style={[
-                      styles.statsTemporada,
-                      { color: c.subtexto },
-                    ]}
-                  >
+                  <Text style={[styles.statsTemporada, { color: c.subtexto }]}>
                     Temporada {seasonLabel}
                   </Text>
                   <View style={styles.statsGrid}>
                     {[
-                      { label: "⚽ Goles", value: playerStats.totalGoles },
-                      {
-                        label: "🅰️ Asistencias",
-                        value: playerStats.totalAsistencias,
-                      },
-                      {
-                        label: "🏆 Partidos gan.",
-                        value: playerStats.partidosGanados,
-                      },
-                      {
-                        label: "🎮 Partidos",
-                        value: playerStats.totalPartidos,
-                      },
-                      {
-                        label: "🟨 T. Amarillas",
-                        value: playerStats.totalTarjetasAmarillas,
-                      },
-                      {
-                        label: "🟥 T. Rojas",
-                        value: playerStats.totalTarjetasRojas,
-                      },
+                      { id: "stat-goles",      label: "⚽ Goles",         value: playerStats.totalGoles },
+                      { id: "stat-asist",      label: "🅰️ Asistencias",   value: playerStats.totalAsistencias },
+                      { id: "stat-ganados",    label: "🏆 Partidos gan.",  value: playerStats.partidosGanados },
+                      { id: "stat-partidos",   label: "🎮 Partidos",       value: playerStats.totalPartidos },
+                      { id: "stat-amarillas",  label: "🟨 T. Amarillas",   value: playerStats.totalTarjetasAmarillas },
+                      { id: "stat-rojas",      label: "🟥 T. Rojas",       value: playerStats.totalTarjetasRojas },
                     ].map((stat) => (
-                      <View
-                        key={stat.label}
-                        style={[
-                          styles.statBox,
-                          { backgroundColor: c.input },
-                        ]}
-                      >
-                        <Text
-                          style={[styles.statValue, { color: c.texto }]}
-                        >
-                          {stat.value ?? 0}
-                        </Text>
-                        <Text
-                          style={[styles.statLabel, { color: c.subtexto }]}
-                        >
-                          {stat.label}
-                        </Text>
+                      // FIX: prefijo "stat-*" en lugar del label como key
+                      <View key={stat.id} style={[styles.statBox, { backgroundColor: c.input }]}>
+                        <Text style={[styles.statValue, { color: c.texto }]}>{stat.value ?? 0}</Text>
+                        <Text style={[styles.statLabel, { color: c.subtexto }]}>{stat.label}</Text>
                       </View>
                     ))}
                   </View>
                 </>
               ) : (
-                <Text
-                  style={[
-                    styles.emptySub,
-                    {
-                      color: c.subtexto,
-                      textAlign: "center",
-                      marginTop: 20,
-                    },
-                  ]}
-                >
+                <Text style={[styles.emptySub, { color: c.subtexto, textAlign: "center", marginTop: 20 }]}>
                   No hay estadísticas disponibles para esta temporada.
                 </Text>
               )}
@@ -909,41 +773,16 @@ export default function MiClub() {
 }
 
 const styles = StyleSheet.create({
-  avatarBase: {
-    borderWidth: 1.5,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  avatarBase: { borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
   avatarText: { fontWeight: "bold" },
 
-  selectorWrap: {
-    paddingTop: 60,
-    paddingBottom: 15,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-  },
-  selectorLabel: {
-    fontSize: 11,
-    textTransform: "uppercase",
-    fontWeight: "bold",
-    marginBottom: 10,
-    letterSpacing: 1,
-  },
-  teamChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
+  selectorWrap: { paddingTop: 60, paddingBottom: 15, paddingHorizontal: 20, borderBottomWidth: 1 },
+  selectorLabel: { fontSize: 11, textTransform: "uppercase", fontWeight: "bold", marginBottom: 10, letterSpacing: 1 },
+  teamChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
 
   container: { flexGrow: 1, padding: 24, paddingTop: 24, paddingBottom: 40 },
 
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    marginBottom: 16,
-  },
+  header: { flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 16 },
   clubInfo: { flex: 1 },
   clubNombre: { fontSize: 22, fontWeight: "bold", marginBottom: 2 },
   clubMeta: { fontSize: 13 },
@@ -957,197 +796,69 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
   },
-  codigoLabel: {
-    fontSize: 11,
-    fontWeight: "500",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
+  codigoLabel: { fontSize: 11, fontWeight: "500", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 },
   codigoValue: { fontSize: 22, fontWeight: "bold", letterSpacing: 4 },
-  copiarButton: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
+  copiarButton: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
   copiarText: { fontSize: 13, fontWeight: "600" },
 
-  chipsRow: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 28,
-    flexWrap: "wrap",
-  },
-  chip: {
-    borderWidth: 1,
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-  },
+  chipsRow: { flexDirection: "row", gap: 8, marginBottom: 28, flexWrap: "wrap" },
+  chip: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5 },
   chipText: { fontSize: 12, fontWeight: "500" },
 
   sectionTitle: { fontSize: 16, fontWeight: "700", marginBottom: 12 },
   emptyText: { fontStyle: "italic", marginBottom: 20 },
 
   staffList: { gap: 10, marginBottom: 8 },
-  staffCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 12,
-    gap: 12,
-  },
+  staffCard: { flexDirection: "row", alignItems: "center", borderRadius: 12, borderWidth: 1, padding: 12, gap: 12 },
   staffInfo: { flex: 1, gap: 3 },
   staffNombre: { fontSize: 14, fontWeight: "600" },
   staffPhone: { fontSize: 12, opacity: 0.8 },
 
   jugadoresList: { gap: 10 },
-  jugadorCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 14,
-    gap: 12,
-  },
+  jugadorCard: { flexDirection: "row", alignItems: "center", borderRadius: 14, borderWidth: 1, padding: 14, gap: 12 },
   jugadorInfo: { flex: 1, gap: 2 },
   jugadorNombre: { fontSize: 14, fontWeight: "600", marginBottom: 2 },
   jugadorMeta: { flexDirection: "row", gap: 10 },
   jugadorMetaText: { fontSize: 11 },
   jugadorDerecha: { alignItems: "center", gap: 4 },
-  dorsalBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  dorsalBadge: { width: 36, height: 36, borderRadius: 10, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
   dorsalText: { fontSize: 13, fontWeight: "bold" },
   posicionText: { fontSize: 10, fontWeight: "500", textAlign: "center" },
   statsHint: { fontSize: 10, fontWeight: "600" },
 
-  emptyWrap: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 30,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginTop: 10,
-    marginBottom: 8,
-  },
+  emptyWrap: { flex: 1, justifyContent: "center", alignItems: "center", padding: 30 },
+  emptyTitle: { fontSize: 18, fontWeight: "bold", marginTop: 10, marginBottom: 8 },
   emptySub: { fontSize: 14, textAlign: "center", lineHeight: 20 },
 
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "flex-end",
-  },
-  overlayCenter: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.55)",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 28,
-  },
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
+  overlayCenter: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "center", alignItems: "center", paddingHorizontal: 28 },
 
-  detailCard: {
-    width: "100%",
-    borderRadius: 22,
-    borderWidth: 1,
-    padding: 24,
-    alignItems: "center",
-  },
-  detailClose: {
-    position: "absolute",
-    top: 16,
-    right: 16,
-    padding: 4,
-  },
+  detailCard: { width: "100%", borderRadius: 22, borderWidth: 1, padding: 24, alignItems: "center" },
+  detailClose: { position: "absolute", top: 16, right: 16, padding: 4 },
   detailAvatarWrap: { marginBottom: 14, marginTop: 4 },
   detailNombre: { fontSize: 20, fontWeight: "800", textAlign: "center", marginBottom: 8 },
-  detailRolChip: {
-    borderWidth: 1,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    marginBottom: 18,
-  },
+  detailRolChip: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5, marginBottom: 18 },
   detailRolText: { fontSize: 13, fontWeight: "600" },
   detailDivider: { width: "100%", height: 1, marginBottom: 16 },
   detailRows: { width: "100%", gap: 10, marginBottom: 20 },
-  detailRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
+  detailRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   detailRowLabel: { fontSize: 13 },
   detailRowValue: { fontSize: 13, fontWeight: "600", textAlign: "right", flexShrink: 1, marginLeft: 12 },
-  detailStatsBtn: {
-    width: "100%",
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
+  detailStatsBtn: { width: "100%", borderRadius: 14, paddingVertical: 14, alignItems: "center" },
   detailStatsBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
 
-  statsCard: {
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
-    padding: 25,
-    borderWidth: 1,
-    borderBottomWidth: 0,
-  },
-  statsHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 8,
-  },
+  statsCard: { borderTopLeftRadius: 25, borderTopRightRadius: 25, padding: 25, borderWidth: 1, borderBottomWidth: 0 },
+  statsHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 },
   statsNombre: { fontSize: 20, fontWeight: "bold" },
   statsPos: { fontSize: 13, marginTop: 2 },
-  statsTemporada: {
-    fontSize: 12,
-    marginBottom: 20,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  statsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    paddingBottom: 20,
-  },
-  statBox: {
-    width: "30%",
-    flex: 1,
-    minWidth: "28%",
-    padding: 14,
-    borderRadius: 14,
-    alignItems: "center",
-  },
+  statsTemporada: { fontSize: 12, marginBottom: 20, textTransform: "uppercase", letterSpacing: 1 },
+  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, paddingBottom: 20 },
+  statBox: { width: "30%", flex: 1, minWidth: "28%", padding: 14, borderRadius: 14, alignItems: "center" },
   statValue: { fontSize: 28, fontWeight: "bold", marginBottom: 4 },
   statLabel: { fontSize: 11, fontWeight: "600", textAlign: "center" },
 
-  sectionHeaderRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-    flexWrap: "wrap",
-    gap: 8,
-  },
+  sectionHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 },
   sortChipsRow: { flexDirection: "row", gap: 6 },
-  sortChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
+  sortChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1 },
   sortChipText: { fontSize: 11, fontWeight: "700" },
 });

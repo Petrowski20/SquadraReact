@@ -23,8 +23,6 @@ import {
 } from "../context/DashboardContext";
 
 // ─── PickerBtn ────────────────────────────────────────────────────────────────
-// Definido a nivel de módulo para evitar que React lo desmonte en cada
-// re-render del componente padre (pérdida de foco en inputs web).
 
 type PickerColors = {
   input: string;
@@ -95,25 +93,64 @@ const PickerBtn = ({
   );
 };
 
+// ─── PickerWrapper ─────────────────────────────────────────────────────────────
+//
+// Android: el DateTimePicker lanza un diálogo nativo del sistema operativo.
+//          NO puede estar dentro de un <Modal> de React Native — si lo metes,
+//          el sistema no sabe dónde anclar el diálogo y no aparece nada.
+//          → Se renderiza directamente (condicional) sin ningún wrapper.
+//
+// iOS:     el DateTimePicker con display="spinner" se pinta inline como una
+//          rueda. Sin Modal propio queda tapado por el bottom-sheet del form.
+//          → Se envuelve en un <Modal transparent> con overlay y botón "Listo".
+
+type PickerWrapperProps = {
+  visible: boolean;
+  onClose: () => void;
+  children: React.ReactElement;
+  bgColor: string;
+  botonColor: string;
+};
+
+function PickerWrapper({ visible, onClose, children, bgColor, botonColor }: PickerWrapperProps) {
+  if (Platform.OS === "android") {
+    return visible ? children : null;
+  }
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <TouchableOpacity style={styles.pickerOverlay} activeOpacity={1} onPress={onClose}>
+        <TouchableOpacity
+          activeOpacity={1}
+          style={[styles.pickerContainer, { backgroundColor: bgColor }]}
+        >
+          {children}
+          <TouchableOpacity
+            style={[styles.pickerDoneBtn, { backgroundColor: botonColor }]}
+            onPress={onClose}
+          >
+            <Text style={styles.pickerDoneText}>Listo</Text>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </TouchableOpacity>
+    </Modal>
+  );
+}
+
 // ─── CalendarModals ───────────────────────────────────────────────────────────
 
 export default function CalendarModals() {
   const c = useTheme();
   const router = useRouter();
   const {
-    // Auth
     isPresident,
     myTeamId,
     teams,
     clubFields,
     canCreate,
     canDeleteEvent,
-
-    // Selection
     selectedDate,
     selectedDayEvents,
-
-    // Modal visibility
     dayModal,
     setDayModal,
     createModal,
@@ -121,8 +158,6 @@ export default function CalendarModals() {
     setExportModal,
     importTeamModal,
     setImportTeamModal,
-
-    // Create / Edit
     createType,
     setCreateType,
     editingEvent,
@@ -130,8 +165,6 @@ export default function CalendarModals() {
     setForm,
     createError,
     handleCancelCreate,
-
-    // Export
     exportFrom,
     setExportFrom,
     exportTo,
@@ -140,12 +173,8 @@ export default function CalendarModals() {
     setExportTypes,
     isExporting,
     isImporting,
-
-    // Loading
     isSubmitting,
     deletingId,
-
-    // Pickers
     pickerDate,
     setPickerDate,
     showDatePicker,
@@ -160,8 +189,6 @@ export default function CalendarModals() {
     setShowRecurringEndPicker,
     recurringEndDate,
     setRecurringEndDate,
-
-    // Handlers
     handleCreateEvent,
     handleDeleteEvent,
     handleEditEvent,
@@ -184,15 +211,10 @@ export default function CalendarModals() {
             <Text style={[styles.modalTitle, { color: c.texto }]}>
               ¿A qué equipo van los eventos?
             </Text>
-            <Text
-              style={[styles.metaText, { color: c.subtexto, marginBottom: 14 }]}
-            >
+            <Text style={[styles.metaText, { color: c.subtexto, marginBottom: 14 }]}>
               Selecciona el equipo de destino para los eventos importados.
             </Text>
-            <ScrollView
-              style={{ maxHeight: 280 }}
-              showsVerticalScrollIndicator={false}
-            >
+            <ScrollView style={{ maxHeight: 280 }} showsVerticalScrollIndicator={false}>
               {teams.map((t) => (
                 <TouchableOpacity
                   key={t.id}
@@ -220,18 +242,11 @@ export default function CalendarModals() {
             <TouchableOpacity
               style={[
                 styles.btnCrear,
-                {
-                  backgroundColor: c.input,
-                  borderWidth: 1,
-                  borderColor: c.bordeInput,
-                  marginTop: 12,
-                },
+                { backgroundColor: c.input, borderWidth: 1, borderColor: c.bordeInput, marginTop: 12 },
               ]}
               onPress={() => setImportTeamModal(false)}
             >
-              <Text style={[styles.btnCrearText, { color: c.texto }]}>
-                Cancelar
-              </Text>
+              <Text style={[styles.btnCrearText, { color: c.texto }]}>Cancelar</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -241,15 +256,10 @@ export default function CalendarModals() {
       <Modal visible={exportModal} transparent animationType="fade">
         <View style={styles.centeredOverlay}>
           <View style={[styles.centeredBox, { backgroundColor: c.fondo }]}>
-            <Text
-              style={[styles.modalTitle, { color: c.texto, marginBottom: 14 }]}
-            >
+            <Text style={[styles.modalTitle, { color: c.texto, marginBottom: 14 }]}>
               Exportar a CSV
             </Text>
-
-            <Text style={[styles.inputLabel, { color: c.texto }]}>
-              Tipo de eventos
-            </Text>
+            <Text style={[styles.inputLabel, { color: c.texto }]}>Tipo de eventos</Text>
             <View style={{ flexDirection: "row", gap: 10, marginBottom: 4 }}>
               {(
                 [
@@ -279,19 +289,13 @@ export default function CalendarModals() {
                       )
                     }
                   >
-                    <Text
-                      style={[
-                        styles.chipText,
-                        { color: active ? c.boton : c.subtexto },
-                      ]}
-                    >
+                    <Text style={[styles.chipText, { color: active ? c.boton : c.subtexto }]}>
                       {label}
                     </Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
-
             <Text style={[styles.inputLabel, { color: c.texto }]}>Desde</Text>
             <PickerBtn
               label="Fecha inicio"
@@ -301,7 +305,6 @@ export default function CalendarModals() {
               onChange={(v) => setExportFrom(v)}
               colors={c}
             />
-
             <Text style={[styles.inputLabel, { color: c.texto }]}>Hasta</Text>
             <PickerBtn
               label="Fecha fin"
@@ -311,32 +314,18 @@ export default function CalendarModals() {
               onChange={(v) => setExportTo(v)}
               colors={c}
             />
-
             <View style={{ flexDirection: "row", gap: 10, marginTop: 16 }}>
               <TouchableOpacity
                 style={[
                   styles.btnCrear,
-                  {
-                    flex: 1,
-                    backgroundColor: c.input,
-                    borderWidth: 1,
-                    borderColor: c.bordeInput,
-                  },
+                  { flex: 1, backgroundColor: c.input, borderWidth: 1, borderColor: c.bordeInput },
                 ]}
                 onPress={() => setExportModal(false)}
               >
-                <Text style={[styles.btnCrearText, { color: c.texto }]}>
-                  Cancelar
-                </Text>
+                <Text style={[styles.btnCrearText, { color: c.texto }]}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[
-                  styles.btnCrear,
-                  {
-                    flex: 1,
-                    backgroundColor: isExporting ? c.bordeInput : c.boton,
-                  },
-                ]}
+                style={[styles.btnCrear, { flex: 1, backgroundColor: isExporting ? c.bordeInput : c.boton }]}
                 onPress={handleExportCSV}
                 disabled={isExporting}
               >
@@ -376,26 +365,16 @@ export default function CalendarModals() {
               <View
                 style={[
                   styles.emptyCard,
-                  {
-                    backgroundColor: c.input,
-                    borderColor: c.bordeInput,
-                    marginTop: 8,
-                  },
+                  { backgroundColor: c.input, borderColor: c.bordeInput, marginTop: 8 },
                 ]}
               >
                 <Text style={{ fontSize: 26, marginBottom: 6 }}>📭</Text>
-                <Text style={[styles.metaText, { color: c.subtexto }]}>
-                  Sin eventos este día
-                </Text>
+                <Text style={[styles.metaText, { color: c.subtexto }]}>Sin eventos este día</Text>
               </View>
             ) : (
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                style={{ maxHeight: 340 }}
-              >
+              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 340 }}>
                 {selectedDayEvents.map((item) => {
-                  const accentColor =
-                    item.type === "MATCH" ? c.boton : "#3b82f6";
+                  const accentColor = item.type === "MATCH" ? c.boton : "#3b82f6";
                   return (
                     <View
                       key={`${item.type}-${item.id}`}
@@ -408,79 +387,36 @@ export default function CalendarModals() {
                         },
                       ]}
                     >
-                      <View
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          gap: 8,
-                          marginBottom: 5,
-                        }}
-                      >
-                        <View
-                          style={[
-                            styles.dayEventBadge,
-                            { backgroundColor: `${accentColor}20` },
-                          ]}
-                        >
-                          <Text
-                            style={{
-                              fontSize: 10,
-                              fontWeight: "700",
-                              color: accentColor,
-                            }}
-                          >
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 5 }}>
+                        <View style={[styles.dayEventBadge, { backgroundColor: `${accentColor}20` }]}>
+                          <Text style={{ fontSize: 10, fontWeight: "700", color: accentColor }}>
                             {item.type === "MATCH"
-                              ? (MATCH_TYPE_DISPLAY[item.matchType ?? ""]?.badge ??
-                                "PARTIDO")
+                              ? (MATCH_TYPE_DISPLAY[item.matchType ?? ""]?.badge ?? "PARTIDO")
                               : "ENTRENO"}
                           </Text>
                         </View>
                       </View>
-                      <Text
-                        style={[
-                          styles.eventoTitulo,
-                          { color: c.texto, marginBottom: 6 },
-                        ]}
-                      >
+                      <Text style={[styles.eventoTitulo, { color: c.texto, marginBottom: 6 }]}>
                         {item.type === "MATCH"
                           ? `${MATCH_TYPE_DISPLAY[item.matchType ?? ""]?.icon ?? "⚽"} ${item.title}`
                           : `🏃 ${item.title}`}
                       </Text>
                       <Text style={[styles.metaText, { color: c.subtexto }]}>
                         🕒{" "}
-                        {new Date(item.startTime).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                        {new Date(item.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         {item.endTime
-                          ? ` – ${new Date(item.endTime).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}`
+                          ? ` – ${new Date(item.endTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
                           : ""}
                       </Text>
                       {item.location && (
-                        <TouchableOpacity
-                          onPress={() => handleOpenMap(item)}
-                          activeOpacity={0.7}
-                        >
-                          <Text
-                            style={[
-                              styles.metaText,
-                              { color: c.boton, marginTop: 3 },
-                            ]}
-                          >
+                        <TouchableOpacity onPress={() => handleOpenMap(item)} activeOpacity={0.7}>
+                          <Text style={[styles.metaText, { color: c.boton, marginTop: 3 }]}>
                             📍 {item.location}
                           </Text>
                         </TouchableOpacity>
                       )}
                       {item.teamName && (
-                        <Text
-                          style={[
-                            styles.metaText,
-                            { color: c.subtexto, marginTop: 3 },
-                          ]}
-                        >
+                        <Text style={[styles.metaText, { color: c.subtexto, marginTop: 3 }]}>
                           👥 {item.teamName}
                         </Text>
                       )}
@@ -494,15 +430,8 @@ export default function CalendarModals() {
                           const diff = matchDay.getTime() - today.getTime();
                           if (diff > 0) {
                             return (
-                              <View
-                                style={[
-                                  styles.liveBtn,
-                                  { marginTop: 10, backgroundColor: "#9ca3af" },
-                                ]}
-                              >
-                                <Text style={styles.liveBtnText}>
-                                  ⏳ Disponible el día del partido
-                                </Text>
+                              <View style={[styles.liveBtn, { marginTop: 10, backgroundColor: "#9ca3af" }]}>
+                                <Text style={styles.liveBtnText}>⏳ Disponible el día del partido</Text>
                               </View>
                             );
                           }
@@ -537,72 +466,41 @@ export default function CalendarModals() {
                           }
                           return (
                             <TouchableOpacity
-                              style={[
-                                styles.liveBtn,
-                                { marginTop: 10, backgroundColor: "#2563eb" },
-                              ]}
+                              style={[styles.liveBtn, { marginTop: 10, backgroundColor: "#2563eb" }]}
                               onPress={() => {
                                 setDayModal(false);
-                                router.push(
-                                  `/(club)/live-match/${item.id}?mode=EDIT`,
-                                );
+                                router.push(`/(club)/live-match/${item.id}?mode=EDIT`);
                               }}
                             >
-                              <Text style={styles.liveBtnText}>
-                                📊 Ver/Editar Estadísticas
-                              </Text>
+                              <Text style={styles.liveBtnText}>📊 Ver/Editar Estadísticas</Text>
                             </TouchableOpacity>
                           );
                         })()}
                       {canDeleteEvent(item) && (
-                        <View
-                          style={{ flexDirection: "row", gap: 8, marginTop: 8 }}
-                        >
+                        <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
                           <TouchableOpacity
                             style={[
                               styles.modalActionBtn,
-                              {
-                                backgroundColor: `${accentColor}15`,
-                                borderColor: accentColor,
-                              },
+                              { backgroundColor: `${accentColor}15`, borderColor: accentColor },
                             ]}
                             onPress={() => handleEditEvent(item)}
                           >
-                            <Text
-                              style={{
-                                color: accentColor,
-                                fontWeight: "700",
-                                fontSize: 13,
-                              }}
-                            >
+                            <Text style={{ color: accentColor, fontWeight: "700", fontSize: 13 }}>
                               ✏️ Editar
                             </Text>
                           </TouchableOpacity>
                           <TouchableOpacity
                             style={[
                               styles.modalActionBtn,
-                              {
-                                backgroundColor: "#ef444415",
-                                borderColor: "#ef4444",
-                              },
+                              { backgroundColor: "#ef444415", borderColor: "#ef4444" },
                             ]}
-                            onPress={() =>
-                              handleDeleteEvent(item.id, item.type)
-                            }
-                            disabled={
-                              deletingId === `${item.type}-${item.id}`
-                            }
+                            onPress={() => handleDeleteEvent(item.id, item.type)}
+                            disabled={deletingId === `${item.type}-${item.id}`}
                           >
                             {deletingId === `${item.type}-${item.id}` ? (
                               <ActivityIndicator size="small" color="#ef4444" />
                             ) : (
-                              <Text
-                                style={{
-                                  color: "#ef4444",
-                                  fontWeight: "700",
-                                  fontSize: 13,
-                                }}
-                              >
+                              <Text style={{ color: "#ef4444", fontWeight: "700", fontSize: 13 }}>
                                 🗑 Borrar
                               </Text>
                             )}
@@ -617,18 +515,11 @@ export default function CalendarModals() {
             <TouchableOpacity
               style={[
                 styles.btnCrear,
-                {
-                  backgroundColor: c.input,
-                  borderWidth: 1,
-                  borderColor: c.bordeInput,
-                  marginTop: 14,
-                },
+                { backgroundColor: c.input, borderWidth: 1, borderColor: c.bordeInput, marginTop: 14 },
               ]}
               onPress={() => setDayModal(false)}
             >
-              <Text style={[styles.btnCrearText, { color: c.texto }]}>
-                Cerrar
-              </Text>
+              <Text style={[styles.btnCrearText, { color: c.texto }]}>Cerrar</Text>
             </TouchableOpacity>
           </TouchableOpacity>
         </TouchableOpacity>
@@ -659,22 +550,11 @@ export default function CalendarModals() {
                     style={[
                       styles.chipModal,
                       createType === type
-                        ? {
-                            backgroundColor: `${c.boton}20`,
-                            borderColor: c.boton,
-                          }
-                        : {
-                            backgroundColor: c.input,
-                            borderColor: c.bordeInput,
-                          },
+                        ? { backgroundColor: `${c.boton}20`, borderColor: c.boton }
+                        : { backgroundColor: c.input, borderColor: c.bordeInput },
                     ]}
                   >
-                    <Text
-                      style={[
-                        styles.chipText,
-                        { color: createType === type ? c.boton : c.subtexto },
-                      ]}
-                    >
+                    <Text style={[styles.chipText, { color: createType === type ? c.boton : c.subtexto }]}>
                       {type === "TRAINING" ? "🏃 Entreno" : "⚽ Partido"}
                     </Text>
                   </TouchableOpacity>
@@ -683,39 +563,21 @@ export default function CalendarModals() {
 
               {isPresident ? (
                 <>
-                  <Text style={[styles.inputLabel, { color: c.texto }]}>
-                    Seleccionar Equipo *
-                  </Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    style={{ marginBottom: 12 }}
-                  >
+                  <Text style={[styles.inputLabel, { color: c.texto }]}>Seleccionar Equipo *</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
                     {teams.map((t) => (
                       <TouchableOpacity
                         key={t.id}
                         style={[
                           styles.chip,
-                          {
-                            backgroundColor:
-                              form.teamId === String(t.id)
-                                ? `${c.boton}20`
-                                : c.input,
-                          },
+                          { backgroundColor: form.teamId === String(t.id) ? `${c.boton}20` : c.input },
                         ]}
-                        onPress={() =>
-                          setForm((f) => ({ ...f, teamId: String(t.id) }))
-                        }
+                        onPress={() => setForm((f) => ({ ...f, teamId: String(t.id) }))}
                       >
                         <Text
                           style={[
                             styles.chipText,
-                            {
-                              color:
-                                form.teamId === String(t.id)
-                                  ? c.boton
-                                  : c.subtexto,
-                            },
+                            { color: form.teamId === String(t.id) ? c.boton : c.subtexto },
                           ]}
                         >
                           {t.category} {t.suffix}
@@ -726,17 +588,9 @@ export default function CalendarModals() {
                 </>
               ) : myTeamId ? (
                 <View
-                  style={[
-                    styles.coachTeamBanner,
-                    {
-                      backgroundColor: `${c.boton}12`,
-                      borderColor: `${c.boton}30`,
-                    },
-                  ]}
+                  style={[styles.coachTeamBanner, { backgroundColor: `${c.boton}12`, borderColor: `${c.boton}30` }]}
                 >
-                  <Text
-                    style={{ fontSize: 12, fontWeight: "600", color: c.boton }}
-                  >
+                  <Text style={{ fontSize: 12, fontWeight: "600", color: c.boton }}>
                     {`👥 Equipo: ${
                       teams.find((t) => t.id === myTeamId)
                         ? `${teams.find((t) => t.id === myTeamId)!.category} ${teams.find((t) => t.id === myTeamId)!.suffix}`
@@ -746,36 +600,20 @@ export default function CalendarModals() {
                 </View>
               ) : (
                 <View
-                  style={[
-                    styles.coachTeamBanner,
-                    {
-                      backgroundColor: "#ef444415",
-                      borderColor: "#ef444430",
-                    },
-                  ]}
+                  style={[styles.coachTeamBanner, { backgroundColor: "#ef444415", borderColor: "#ef444430" }]}
                 >
-                  <Text
-                    style={{
-                      fontSize: 13,
-                      fontWeight: "700",
-                      color: "#ef4444",
-                      marginBottom: 2,
-                    }}
-                  >
+                  <Text style={{ fontSize: 13, fontWeight: "700", color: "#ef4444", marginBottom: 2 }}>
                     ⚠️ Sin equipo asignado
                   </Text>
                   <Text style={{ fontSize: 12, color: "#ef4444" }}>
-                    No tienes equipo asignado para crear eventos. Contacta con
-                    el presidente del club.
+                    No tienes equipo asignado para crear eventos. Contacta con el presidente del club.
                   </Text>
                 </View>
               )}
 
               <View style={{ flexDirection: "row", gap: 10 }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.inputLabel, { color: c.texto }]}>
-                    Fecha *
-                  </Text>
+                  <Text style={[styles.inputLabel, { color: c.texto }]}>Fecha *</Text>
                   <PickerBtn
                     label="Seleccionar fecha"
                     value={form.date}
@@ -786,9 +624,7 @@ export default function CalendarModals() {
                   />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.inputLabel, { color: c.texto }]}>
-                    Hora *
-                  </Text>
+                  <Text style={[styles.inputLabel, { color: c.texto }]}>Hora *</Text>
                   <PickerBtn
                     label="Seleccionar hora"
                     value={form.time}
@@ -802,9 +638,7 @@ export default function CalendarModals() {
 
               {createType === "TRAINING" && (
                 <View>
-                  <Text style={[styles.inputLabel, { color: c.texto }]}>
-                    Hora fin
-                  </Text>
+                  <Text style={[styles.inputLabel, { color: c.texto }]}>Hora fin</Text>
                   <PickerBtn
                     label="Seleccionar hora fin"
                     value={form.endTime}
@@ -816,42 +650,22 @@ export default function CalendarModals() {
                 </View>
               )}
 
-              <Text style={[styles.inputLabel, { color: c.texto }]}>
-                Ubicación / Campo
-              </Text>
+              <Text style={[styles.inputLabel, { color: c.texto }]}>Ubicación / Campo</Text>
               {clubFields.length > 0 && (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  style={{ marginBottom: 8 }}
-                >
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
                   {clubFields.map((campo) => (
                     <TouchableOpacity
                       key={campo.id}
                       style={[
                         styles.chip,
-                        {
-                          backgroundColor:
-                            form.fieldId === campo.id
-                              ? `${c.boton}20`
-                              : c.input,
-                        },
+                        { backgroundColor: form.fieldId === campo.id ? `${c.boton}20` : c.input },
                       ]}
-                      onPress={() =>
-                        setForm((f) => ({
-                          ...f,
-                          fieldId: campo.id,
-                          location: campo.name,
-                        }))
-                      }
+                      onPress={() => setForm((f) => ({ ...f, fieldId: campo.id, location: campo.name }))}
                     >
                       <Text
                         style={[
                           styles.chipText,
-                          {
-                            color:
-                              form.fieldId === campo.id ? c.boton : c.subtexto,
-                          },
+                          { color: form.fieldId === campo.id ? c.boton : c.subtexto },
                         ]}
                       >
                         📍 {campo.name}
@@ -863,74 +677,41 @@ export default function CalendarModals() {
               <TextInput
                 style={[
                   styles.textInput,
-                  {
-                    backgroundColor: c.input,
-                    color: c.texto,
-                    borderColor: c.bordeInput,
-                    marginBottom: 12,
-                  },
+                  { backgroundColor: c.input, color: c.texto, borderColor: c.bordeInput, marginBottom: 12 },
                 ]}
                 placeholder="Escribe o selecciona arriba..."
                 placeholderTextColor={c.subtexto}
                 value={form.location || ""}
-                onChangeText={(v) =>
-                  setForm((f) => ({ ...f, location: v, fieldId: null }))
-                }
+                onChangeText={(v) => setForm((f) => ({ ...f, location: v, fieldId: null }))}
               />
 
               {createType === "MATCH" && (
                 <>
-                  <Text style={[styles.inputLabel, { color: c.texto }]}>
-                    Rival *
-                  </Text>
+                  <Text style={[styles.inputLabel, { color: c.texto }]}>Rival *</Text>
                   <TextInput
                     style={[
                       styles.textInput,
-                      {
-                        backgroundColor: c.input,
-                        color: c.texto,
-                        borderColor: c.bordeInput,
-                      },
+                      { backgroundColor: c.input, color: c.texto, borderColor: c.bordeInput },
                     ]}
                     placeholder="Nombre del Rival"
                     placeholderTextColor={c.subtexto}
-                    onChangeText={(v) =>
-                      setForm((f) => ({ ...f, opponentName: v }))
-                    }
+                    onChangeText={(v) => setForm((f) => ({ ...f, opponentName: v }))}
                   />
-                  <Text style={[styles.inputLabel, { color: c.texto }]}>
-                    Competición
-                  </Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    style={{ marginBottom: 12 }}
-                  >
+                  <Text style={[styles.inputLabel, { color: c.texto }]}>Competición</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
                     {MATCH_TYPES.map((mt) => (
                       <TouchableOpacity
                         key={mt.value}
                         style={[
                           styles.chip,
-                          {
-                            backgroundColor:
-                              form.matchType === mt.value
-                                ? `${c.boton}20`
-                                : c.input,
-                          },
+                          { backgroundColor: form.matchType === mt.value ? `${c.boton}20` : c.input },
                         ]}
-                        onPress={() =>
-                          setForm((f) => ({ ...f, matchType: mt.value }))
-                        }
+                        onPress={() => setForm((f) => ({ ...f, matchType: mt.value }))}
                       >
                         <Text
                           style={[
                             styles.chipText,
-                            {
-                              color:
-                                form.matchType === mt.value
-                                  ? c.boton
-                                  : c.subtexto,
-                            },
+                            { color: form.matchType === mt.value ? c.boton : c.subtexto },
                           ]}
                         >
                           {mt.label}
@@ -945,31 +726,15 @@ export default function CalendarModals() {
                     ].map(({ label, val }) => (
                       <TouchableOpacity
                         key={val}
-                        onPress={() =>
-                          setForm((f) => ({ ...f, isHome: val }))
-                        }
+                        onPress={() => setForm((f) => ({ ...f, isHome: val }))}
                         style={[
                           styles.chipModal,
                           form.isHome === val
-                            ? {
-                                backgroundColor: `${c.boton}20`,
-                                borderColor: c.boton,
-                              }
-                            : {
-                                backgroundColor: c.input,
-                                borderColor: c.bordeInput,
-                              },
+                            ? { backgroundColor: `${c.boton}20`, borderColor: c.boton }
+                            : { backgroundColor: c.input, borderColor: c.bordeInput },
                         ]}
                       >
-                        <Text
-                          style={[
-                            styles.chipText,
-                            {
-                              color:
-                                form.isHome === val ? c.boton : c.subtexto,
-                            },
-                          ]}
-                        >
+                        <Text style={[styles.chipText, { color: form.isHome === val ? c.boton : c.subtexto }]}>
                           {label}
                         </Text>
                       </TouchableOpacity>
@@ -981,15 +746,8 @@ export default function CalendarModals() {
               {createType === "TRAINING" && (
                 <>
                   <TouchableOpacity
-                    onPress={() =>
-                      setForm((f) => ({ ...f, recurring: !f.recurring }))
-                    }
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      marginTop: 12,
-                      marginBottom: 6,
-                    }}
+                    onPress={() => setForm((f) => ({ ...f, recurring: !f.recurring }))}
+                    style={{ flexDirection: "row", alignItems: "center", marginTop: 12, marginBottom: 6 }}
                   >
                     <View
                       style={{
@@ -1005,23 +763,10 @@ export default function CalendarModals() {
                       }}
                     >
                       {form.recurring && (
-                        <Text
-                          style={{
-                            color: "#fff",
-                            fontSize: 12,
-                            fontWeight: "bold",
-                          }}
-                        >
-                          ✓
-                        </Text>
+                        <Text style={{ color: "#fff", fontSize: 12, fontWeight: "bold" }}>✓</Text>
                       )}
                     </View>
-                    <Text
-                      style={[
-                        styles.inputLabel,
-                        { color: c.texto, marginTop: 0, marginBottom: 0 },
-                      ]}
-                    >
+                    <Text style={[styles.inputLabel, { color: c.texto, marginTop: 0, marginBottom: 0 }]}>
                       Repetir semanalmente
                     </Text>
                   </TouchableOpacity>
@@ -1052,9 +797,7 @@ export default function CalendarModals() {
                                 setForm((f) => ({
                                   ...f,
                                   recurringDays: sel
-                                    ? f.recurringDays.filter(
-                                        (d) => d !== day.value,
-                                      )
+                                    ? f.recurringDays.filter((d) => d !== day.value)
                                     : [...(f.recurringDays || []), day.value],
                                 }))
                               }
@@ -1069,30 +812,20 @@ export default function CalendarModals() {
                                 justifyContent: "center",
                               }}
                             >
-                              <Text
-                                style={{
-                                  color: sel ? c.boton : c.subtexto,
-                                  fontSize: 13,
-                                  fontWeight: "bold",
-                                }}
-                              >
+                              <Text style={{ color: sel ? c.boton : c.subtexto, fontSize: 13, fontWeight: "bold" }}>
                                 {day.label}
                               </Text>
                             </TouchableOpacity>
                           );
                         })}
                       </View>
-                      <Text style={[styles.inputLabel, { color: c.texto }]}>
-                        Repetir hasta
-                      </Text>
+                      <Text style={[styles.inputLabel, { color: c.texto }]}>Repetir hasta</Text>
                       <PickerBtn
                         label="Seleccionar fecha fin"
                         value={form.recurringEndDate}
                         onPress={() => setShowRecurringEndPicker(true)}
                         mode="date"
-                        onChange={(v) =>
-                          setForm((f) => ({ ...f, recurringEndDate: v }))
-                        }
+                        onChange={(v) => setForm((f) => ({ ...f, recurringEndDate: v }))}
                         colors={c}
                       />
                     </>
@@ -1100,97 +833,35 @@ export default function CalendarModals() {
                 </>
               )}
 
-              {/* BANNER DE ERROR */}
               {createError !== "" && (
                 <View
                   style={[
                     styles.errorBanner,
-                    {
-                      backgroundColor: `${c.error || "#ef4444"}15`,
-                      borderColor: c.error || "#ef4444",
-                    },
+                    { backgroundColor: `${c.error || "#ef4444"}15`, borderColor: c.error || "#ef4444" },
                   ]}
                 >
-                  <Text
-                    style={{
-                      color: c.error || "#ef4444",
-                      fontSize: 13,
-                      textAlign: "center",
-                      fontWeight: "500",
-                    }}
-                  >
+                  <Text style={{ color: c.error || "#ef4444", fontSize: 13, textAlign: "center", fontWeight: "500" }}>
                     ⚠️ {createError}
                   </Text>
                 </View>
               )}
 
-              {/* BOTONES DE ACCIÓN */}
               <View style={{ flexDirection: "row", gap: 10, marginTop: 15 }}>
                 <TouchableOpacity
                   style={[
                     styles.btnCrear,
-                    {
-                      backgroundColor: c.input,
-                      flex: 1,
-                      borderWidth: 1,
-                      borderColor: c.bordeInput,
-                    },
+                    { backgroundColor: c.input, flex: 1, borderWidth: 1, borderColor: c.bordeInput },
                   ]}
                   onPress={handleCancelCreate}
                 >
-                  <Text style={[styles.btnCrearText, { color: c.texto }]}>
-                    Cancelar
-                  </Text>
+                  <Text style={[styles.btnCrearText, { color: c.texto }]}>Cancelar</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[
                     styles.btnCrear,
                     {
                       backgroundColor:
-                        isSubmitting || (!isPresident && !myTeamId)
-                          ? c.bordeInput
-                          : c.boton,
-                      flex: 1,
-                    },
-                  ]}
-                  onPress={handleCreateEvent}
-                  disabled={isSubmitting || (!isPresident && !myTeamId)}
-                >
-                  {isSubmitting ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={styles.btnCrearText}>
-                      {editingEvent ? "Actualizar" : "Confirmar"}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-
-              <View style={{ flexDirection: "row", gap: 10, marginTop: 15 }}>
-                <TouchableOpacity
-                  style={[
-                    styles.btnCrear,
-                    {
-                      backgroundColor: c.input,
-                      flex: 1,
-                      borderWidth: 1,
-                      borderColor: c.bordeInput,
-                    },
-                  ]}
-                  onPress={handleCancelCreate}
-                >
-                  <Text style={[styles.btnCrearText, { color: c.texto }]}>
-                    Cancelar
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.btnCrear,
-                    {
-                      backgroundColor:
-                        isSubmitting || (!isPresident && !myTeamId)
-                          ? c.bordeInput
-                          : c.boton,
+                        isSubmitting || (!isPresident && !myTeamId) ? c.bordeInput : c.boton,
                       flex: 1,
                     },
                   ]}
@@ -1211,85 +882,104 @@ export default function CalendarModals() {
         </View>
       </Modal>
 
-      {/* ─── PICKERS ──────────────────────────────────────────────────────── */}
-      {showDatePicker && (
+      {/* ─── PICKERS ──────────────────────────────────────────────────────────
+          Android → diálogo nativo del sistema, sin Modal de React Native.
+          iOS     → Modal con overlay oscuro + spinner + botón "Listo".
+      ─────────────────────────────────────────────────────────────────────── */}
+
+      {/* Picker: Fecha del evento */}
+      <PickerWrapper
+        visible={showDatePicker}
+        onClose={() => setShowDatePicker(false)}
+        bgColor={c.fondo}
+        botonColor={c.boton}
+      >
         <DateTimePicker
           value={pickerDate}
           mode="date"
           display={Platform.OS === "ios" ? "spinner" : "default"}
           onChange={(_, selected) => {
-            setShowDatePicker(Platform.OS === "ios");
+            if (Platform.OS === "android") setShowDatePicker(false);
             if (selected) {
               setPickerDate(selected);
               setForm((f) => ({ ...f, date: toDateString(selected) }));
             }
-            if (Platform.OS === "android") setShowDatePicker(false);
           }}
         />
-      )}
-      {showTimePicker && (
+      </PickerWrapper>
+
+      {/* Picker: Hora de inicio */}
+      <PickerWrapper
+        visible={showTimePicker}
+        onClose={() => setShowTimePicker(false)}
+        bgColor={c.fondo}
+        botonColor={c.boton}
+      >
         <DateTimePicker
           value={pickerDate}
           mode="time"
           is24Hour
           display={Platform.OS === "ios" ? "spinner" : "default"}
           onChange={(_, selected) => {
+            if (Platform.OS === "android") setShowTimePicker(false);
             if (selected) {
               setPickerDate(selected);
               setForm((f) => ({ ...f, time: toTimeString(selected) }));
             }
-            if (Platform.OS === "android") setShowTimePicker(false);
           }}
         />
-      )}
-      {showEndTimePicker && (
+      </PickerWrapper>
+
+      {/* Picker: Hora fin */}
+      <PickerWrapper
+        visible={showEndTimePicker}
+        onClose={() => setShowEndTimePicker(false)}
+        bgColor={c.fondo}
+        botonColor={c.boton}
+      >
         <DateTimePicker
           value={pickerEndTime}
           mode="time"
           is24Hour
           display={Platform.OS === "ios" ? "spinner" : "default"}
           onChange={(_, selected) => {
+            if (Platform.OS === "android") setShowEndTimePicker(false);
             if (selected) {
               setPickerEndTime(selected);
               setForm((f) => ({ ...f, endTime: toTimeString(selected) }));
             }
-            if (Platform.OS === "android") setShowEndTimePicker(false);
           }}
         />
-      )}
-      {showRecurringEndPicker && (
+      </PickerWrapper>
+
+      {/* Picker: Fecha fin recurrente */}
+      <PickerWrapper
+        visible={showRecurringEndPicker}
+        onClose={() => setShowRecurringEndPicker(false)}
+        bgColor={c.fondo}
+        botonColor={c.boton}
+      >
         <DateTimePicker
           value={recurringEndDate}
           mode="date"
           display={Platform.OS === "ios" ? "spinner" : "default"}
           onChange={(_, selected) => {
+            if (Platform.OS === "android") setShowRecurringEndPicker(false);
             if (selected) {
               setRecurringEndDate(selected);
               setForm((f) => ({ ...f, recurringEndDate: toDateString(selected) }));
             }
-            if (Platform.OS === "android") setShowRecurringEndPicker(false);
           }}
         />
-      )}
+      </PickerWrapper>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-    marginRight: 8,
-  },
+  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, marginRight: 8 },
   chipText: { fontSize: 12, fontWeight: "bold" },
-  chipModal: {
-    flex: 1,
-    paddingVertical: 11,
-    borderRadius: 12,
-    alignItems: "center",
-    borderWidth: 1,
-  },
+  chipModal: { flex: 1, paddingVertical: 11, borderRadius: 12, alignItems: "center", borderWidth: 1 },
   chipsRowModal: { flexDirection: "row", gap: 10, marginBottom: 10 },
   centeredOverlay: {
     flex: 1,
@@ -1298,93 +988,30 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 24,
   },
-  centeredBox: {
-    width: "100%",
-    borderRadius: 20,
-    padding: 20,
-    paddingBottom: 24,
-    maxHeight: "75%",
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.55)",
-    justifyContent: "flex-end",
-  },
-  modalBox: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 22,
-    paddingBottom: 38,
-  },
+  centeredBox: { width: "100%", borderRadius: 20, padding: 20, paddingBottom: 24, maxHeight: "75%" },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "flex-end" },
+  modalBox: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 22, paddingBottom: 38 },
   modalTitle: { fontSize: 17, fontWeight: "bold", marginBottom: 14 },
-  inputLabel: {
-    fontSize: 13,
-    fontWeight: "bold",
-    marginBottom: 6,
-    marginTop: 8,
-  },
-  textInput: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 14,
-    marginBottom: 5,
-  },
+  inputLabel: { fontSize: 13, fontWeight: "bold", marginBottom: 6, marginTop: 8 },
+  textInput: { borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 14, marginBottom: 5 },
   pickerBtn: { borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 5 },
   btnCrear: { paddingVertical: 13, borderRadius: 12, alignItems: "center" },
   btnCrearText: { color: "white", fontWeight: "bold", fontSize: 15 },
-  coachTeamBanner: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 10,
-  },
-  errorBanner: {
-    padding: 13,
-    borderWidth: 1,
-    borderRadius: 12,
-    marginBottom: 4,
-    marginTop: 12,
-  },
-  dayModalHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#ccc",
-    alignSelf: "center",
-    marginBottom: 16,
-  },
-  dayEventCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderLeftWidth: 4,
-    padding: 12,
-    marginBottom: 10,
-  },
+  coachTeamBanner: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 },
+  errorBanner: { padding: 13, borderWidth: 1, borderRadius: 12, marginBottom: 4, marginTop: 12 },
+  dayModalHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: "#ccc", alignSelf: "center", marginBottom: 16 },
+  dayEventCard: { borderRadius: 12, borderWidth: 1, borderLeftWidth: 4, padding: 12, marginBottom: 10 },
   dayEventBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   eventoTitulo: { fontSize: 14, fontWeight: "bold", marginBottom: 4 },
   metaText: { fontSize: 12, fontWeight: "500" },
-  emptyCard: {
-    padding: 22,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderStyle: "dashed",
-    alignItems: "center",
-    marginTop: 6,
-  },
-  modalActionBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    alignItems: "center",
-  },
-  liveBtn: {
-    backgroundColor: "#16a34a",
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: "center",
-  },
+  emptyCard: { padding: 22, borderRadius: 12, borderWidth: 1, borderStyle: "dashed", alignItems: "center", marginTop: 6 },
+  modalActionBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, borderWidth: 1, alignItems: "center" },
+  liveBtn: { backgroundColor: "#16a34a", paddingVertical: 10, borderRadius: 10, alignItems: "center" },
   liveBtnText: { color: "#fff", fontWeight: "800", fontSize: 14 },
+
+  // ── Picker iOS ─────────────────────────────────────────────────────────────
+  pickerOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" },
+  pickerContainer: { borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 12, paddingBottom: 34, paddingHorizontal: 16 },
+  pickerDoneBtn: { marginTop: 10, marginHorizontal: 16, paddingVertical: 12, borderRadius: 12, alignItems: "center" },
+  pickerDoneText: { color: "#fff", fontWeight: "bold", fontSize: 15 },
 });
