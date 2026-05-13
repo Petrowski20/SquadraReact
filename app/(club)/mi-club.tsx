@@ -212,37 +212,39 @@ export default function MiClub() {
   };
 
   const sortedPlantilla = useMemo(() => {
-    const list: any[] = data?.plantilla ?? [];
-    return [...list].sort((a, b) => {
-      let result = 0;
-      if (playerSort.key === "POSITION") {
-        result = (POSICION_ORDEN[a.position] ?? 99) - (POSICION_ORDEN[b.position] ?? 99);
-      } else if (playerSort.key === "NAME") {
-        result = `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
-      } else {
-        const ta = parseBirthDate(a.birthDate);
-        const tb = parseBirthDate(b.birthDate);
-        if (isNaN(ta) && isNaN(tb)) return 0;
-        if (isNaN(ta)) return 1;
-        if (isNaN(tb)) return -1;
-        result = ta - tb;
-      }
-      return playerSort.direction === "desc" ? -result : result;
-    });
-  }, [data?.plantilla, playerSort]);
+  const raw: any[] = data?.plantilla ?? [];
+  const list = Array.from(new Map(raw.map((p) => [p.id, p])).values());
+  return list.sort((a, b) => {
+    let result = 0;
+    if (playerSort.key === "POSITION") {
+      result = (POSICION_ORDEN[a.position] ?? 99) - (POSICION_ORDEN[b.position] ?? 99);
+    } else if (playerSort.key === "NAME") {
+      result = `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+    } else {
+      const ta = parseBirthDate(a.birthDate);
+      const tb = parseBirthDate(b.birthDate);
+      if (isNaN(ta) && isNaN(tb)) return 0;
+      if (isNaN(ta)) return 1;
+      if (isNaN(tb)) return -1;
+      result = ta - tb;
+    }
+    return playerSort.direction === "desc" ? -result : result;
+  });
+}, [data?.plantilla, playerSort]);
 
-  const sortedStaff = useMemo(() => {
-    const list: any[] = data?.staff ?? [];
-    return [...list].sort((a, b) => {
-      let result = 0;
-      if (staffSort.key === "ROLE") {
-        result = (STAFF_ROL_ORDEN[a.staffRole] ?? 99) - (STAFF_ROL_ORDEN[b.staffRole] ?? 99);
-      } else {
-        result = `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
-      }
-      return staffSort.direction === "desc" ? -result : result;
-    });
-  }, [data?.staff, staffSort]);
+const sortedStaff = useMemo(() => {
+  const raw: any[] = data?.staff ?? [];
+  const list = Array.from(new Map(raw.map((s) => [s.id, s])).values());
+  return list.sort((a, b) => {
+    let result = 0;
+    if (staffSort.key === "ROLE") {
+      result = (STAFF_ROL_ORDEN[a.staffRole] ?? 99) - (STAFF_ROL_ORDEN[b.staffRole] ?? 99);
+    } else {
+      result = `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+    }
+    return staffSort.direction === "desc" ? -result : result;
+  });
+}, [data?.staff, staffSort]);
 
   if (loading && !data)
     return <ActivityIndicator style={{ flex: 1 }} color={c.boton} />;
