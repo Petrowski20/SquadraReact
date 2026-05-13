@@ -267,7 +267,8 @@ export default function SchedulePanel() {
       isManualScrollUpdate.current = false;
       return;
     }
-    if (!selectedDate || selectedDate === lastScrolledDate.current) return;
+    if (!selectedDate) return;
+    if (selectedDate === lastScrolledDate.current && lastScrolledDate.current !== null) return;
 
     const sectionIndex = sectionIndexMap.get(selectedDate);
 
@@ -303,12 +304,19 @@ export default function SchedulePanel() {
 
     setTimeout(() => {
       sectionListRef.current?.scrollToLocation({
-        sectionIndex,
+        sectionIndex: 0,
         itemIndex: 0,
-        animated: true,
-        viewOffset: 0,
+        animated: false,
       });
-      setTimeout(() => { isScrollingProgrammatically.current = false; }, 500);
+      setTimeout(() => {
+        sectionListRef.current?.scrollToLocation({
+          sectionIndex,
+          itemIndex: 0,
+          animated: false,
+          viewOffset: 0,
+        });
+        setTimeout(() => { isScrollingProgrammatically.current = false; }, 500);
+      }, 200);
     }, 100);
   }, [selectedDate, sectionIndexMap, sections]);
 

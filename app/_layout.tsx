@@ -1,11 +1,12 @@
 import { useFonts } from 'expo-font';
-import { Stack, useRouter, useSegments } from "expo-router";
+import { Stack, useRouter, useSegments, useRootNavigationState } from "expo-router";
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from "react";
 import { Platform } from "react-native";
 import "../lib/i18n";
 import { supabase } from "../lib/supabase";
 import { useAuthStore } from "../lib/store";
+import { apiFetch } from "../lib/api";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -15,6 +16,7 @@ export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
   const token = useAuthStore((state) => state.token);
+  const navigationState = useRootNavigationState();
 
   const [fontsLoaded, fontError] = useFonts({
     'SquadraStencil': require('../assets/fonts/SquadraFont.ttf'),
@@ -96,20 +98,38 @@ export default function RootLayout() {
   // Auth guard: only redirect once fonts and persistence are ready
   useEffect(() => {
     if ((!fontsLoaded && !fontError) || !isReady) return;
+    if (!navigationState?.key) return; // router aún no está listo
 
-    const inAuthGroup = segments[0] === "(auth)";
+    const inAuthGroup = segments[0] === "(auth)" || segments[0] === "(completar-perfil)";
     if (!token && !inAuthGroup) {
       router.replace("/(auth)");
-    } else if (token && inAuthGroup) {
+    } else if (token && segments[0] === "(auth)") {
       router.replace("/(selector)");
+    } else if (token && !inAuthGroup && segments[0] !== "(selector)" && segments[0] !== "(club)") {
+      supabase.auth.getUser().then(({ data }) => {
+        const provider = data.user?.app_metadata?.provider;
+        if (provider !== "google") return; // usuarios email/password no necesitan completar perfil
+
+        apiFetch("/profiles/me").then(async (res) => {
+          if (!res.ok) {
+            router.replace("/(completar-perfil)");
+            return;
+          }
+          const profile = await res.json();
+          if (!profile.phone || !profile.docNumber) {
+            router.replace("/(completar-perfil)");
+          }
+        });
+      });
     }
-  }, [token, fontsLoaded, fontError, isReady, segments]);
+  }, [token, fontsLoaded, fontError, isReady, segments, navigationState?.key]);
 
   if ((!fontsLoaded && !fontError) || !isReady) return null;
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(auth)" />
+      <Stack.Screen name="(completar-perfil)" />
       <Stack.Screen name="(selector)" />
       <Stack.Screen name="(club)" />
     </Stack>

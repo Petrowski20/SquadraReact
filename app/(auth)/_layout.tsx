@@ -11,7 +11,8 @@ export default function AuthLayout() {
       <Stack.Screen name="login" />
       <Stack.Screen name="registro" />
       <Stack.Screen name="recuperar-password" />
-      
+      <Stack.Screen name="callback" />
+
     </Stack>
   );
 }

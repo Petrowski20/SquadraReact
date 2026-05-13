@@ -14,17 +14,12 @@ import {
   View,
 } from "react-native";
 
-import * as WebBrowser from "expo-web-browser";
 import Svg, { Path } from "react-native-svg";
-
 import LogoSimbolo from "../../components/LogoSimbolo";
 import { signInWithGoogle } from "../../lib/auth/googleSignIn";
 import { isEmpty, isValidEmail } from "../../lib/helper";
 import { useAuthStore } from "../../lib/store";
 import { useTheme } from "../../lib/useTheme";
-import { useGoogleAuth } from "../../lib/useGoogleAuth";
-
-WebBrowser.maybeCompleteAuthSession();
 
 function GoogleIcon() {
   return (
@@ -51,10 +46,8 @@ export default function Login() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const { promptGoogleAuth } = useGoogleAuth();
-
- const validateFields = (): boolean => {
-    setErrorMessage(""); // Limpiamos errores previos
+  const validateFields = (): boolean => {
+    setErrorMessage("");
     if (!isValidEmail(email)) {
       setErrorMessage(t("login.errorEmail", "Introduce un formato de email válido (ej: correo@dominio.com)"));
       return false;
@@ -68,9 +61,9 @@ export default function Login() {
 
   const handleLogin = async () => {
     if (!validateFields()) return;
-    
+
     setIsLoading(true);
-    setErrorMessage(""); // Limpiamos por si había un error previo antes de llamar a la API
+    setErrorMessage("");
 
     try {
       const API_URL = process.env.EXPO_PUBLIC_API_URL || "https://squadraapi.onrender.com";
@@ -109,51 +102,8 @@ export default function Login() {
     setIsGoogleLoading(true);
     setErrorMessage("");
     try {
-      const result = await promptGoogleAuth();
-      if (result?.type !== "success") return;
-
-      const idToken = result.params?.id_token;
-      if (!idToken) {
-        setErrorMessage("No se pudo obtener el token de Google.");
-        return;
-      }
-
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || "https://squadraapi.onrender.com";
-      const response = await fetch(`${API_URL}/auth/google`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ idToken }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        setErrorMessage(errorText || "Error al iniciar sesión con Google.");
-        return;
-      }
-
-      const data = await response.json();
-      setAuth(data.token, {
-        userId: data.userId,
-        email: data.email,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        phone: data.phone,
-        docType: data.docType,
-        docNumber: data.docNumber,
-        photoUrl: data.photoUrl,
-      });
-    } catch {
-      setErrorMessage("Error al conectar con Google. Inténtalo de nuevo.");
-    } finally {
-      setIsGoogleLoading(false);
-    }
-  };
-
-  const handleNativeGoogleLogin = async () => {
-    setIsGoogleLoading(true);
-    setErrorMessage("");
-    try {
       await signInWithGoogle();
+      // onAuthStateChange en el layout se encarga de la navegación
     } catch {
       setErrorMessage("Error al conectar con Google. Inténtalo de nuevo.");
     } finally {
@@ -262,20 +212,20 @@ export default function Login() {
             <Text style={[styles.separatorText, { color: c.subtexto }]}>o</Text>
             <View style={[styles.separatorLine, { backgroundColor: c.bordeInput }]} />
           </View>
+
           <TouchableOpacity
             style={[styles.googleButton, { backgroundColor: c.fondo, borderColor: c.bordeInput }]}
-            onPress={Platform.OS === "web" ? handleGoogleLogin : handleNativeGoogleLogin}
+            onPress={handleGoogleLogin}
             disabled={isGoogleLoading || isLoading}
             activeOpacity={0.85}
           >
-            {isGoogleLoading ? (
-              <ActivityIndicator color={c.subtexto} />
-            ) : (
-              <View style={styles.googleButtonContent}>
-                <GoogleIcon />
-                <Text style={[styles.googleButtonText, { color: c.texto }]}>Continuar con Google</Text>
-              </View>
-            )}
+            {isGoogleLoading
+              ? <ActivityIndicator color={c.subtexto} />
+              : <View style={styles.googleButtonContent}>
+                  <GoogleIcon />
+                  <Text style={[styles.googleButtonText, { color: c.texto }]}>Continuar con Google</Text>
+                </View>
+            }
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -318,7 +268,7 @@ const styles = StyleSheet.create({
   separatorRow: { flexDirection: "row", alignItems: "center", marginBottom: 16, gap: 10 },
   separatorLine: { flex: 1, height: 1 },
   separatorText: { fontSize: 13, fontWeight: "500" },
-  googleButton: { borderWidth: 1.5, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginBottom: 20 },
+  googleButton: { borderWidth: 1.5, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginBottom: 16 },
   googleButtonContent: { flexDirection: "row", alignItems: "center", gap: 10 },
   googleButtonText: { fontSize: 15, fontWeight: "600" },
 });
