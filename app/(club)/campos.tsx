@@ -242,89 +242,112 @@ export default function Campos() {
   }
 
   const handleImportCampos = async () => {
-    try {
-      setIsImporting(true)
-      const result = await DocumentPicker.getDocumentAsync({
-        type: Platform.OS === 'android' ? '*/*' : ['text/csv', 'text/plain', 'application/json'],
-        copyToCacheDirectory: true,
+  // ── 1. ABRIR PICKER ───────────────────────────────────────────────────
+  // '*/*' funciona en Android e iOS. Los arrays de MIME types en iOS
+  // requieren UTIs (p.ej. 'public.text'), no MIME types — con MIME types
+  // expo-document-picker lanza una excepción antes de abrir el explorador.
+  let result: DocumentPicker.DocumentPickerResult
+  try {
+    result = await DocumentPicker.getDocumentAsync({
+      type: '*/*',
+      copyToCacheDirectory: true,
+    })
+  } catch {
+    Alert.alert('Error', 'No se pudo abrir el selector de archivos.')
+    return
+  }
+
+  if (result.canceled || !result.assets?.length) return
+
+  // ── 2. LEER Y PARSEAR ─────────────────────────────────────────────────
+  setIsImporting(true)
+  try {
+    const asset = result.assets[0]
+    let text: string
+
+    if (Platform.OS === 'web') {
+      text = await fetch(asset.uri).then((r) => r.text())
+    } else {
+      const FS = (await import('expo-file-system')) as any
+      text = await FS.readAsStringAsync(asset.uri)
+    }
+
+    const isJson = asset.name?.toLowerCase().endsWith('.json')
+    let rows: any[]
+
+    if (isJson) {
+      const parsed = JSON.parse(text)
+      rows = Array.isArray(parsed) ? parsed : [parsed]
+    } else {
+      const { data } = Papa.parse<any>(text, {
+        header: true,
+        skipEmptyLines: true,
+        dynamicTyping: true,
       })
-      if (result.canceled || !result.assets?.length) return
+      rows = data
+    }
 
-      const asset = result.assets[0]
-      let text: string
-      if (Platform.OS === 'web') {
-        text = await fetch(asset.uri).then((r) => r.text())
-      } else {
-        const FS = (await import('expo-file-system')) as any
-        text = await FS.readAsStringAsync(asset.uri)
-      }
+    if (!rows.length) {
+      Alert.alert('Sin datos', 'No se encontraron registros en el archivo.')
+      return
+    }
 
-      const isJson = asset.name?.toLowerCase().endsWith('.json')
-      let rows: any[]
-      if (isJson) {
-        const parsed = JSON.parse(text)
-        rows = Array.isArray(parsed) ? parsed : [parsed]
-      } else {
-        const { data } = Papa.parse<any>(text, { header: true, skipEmptyLines: true, dynamicTyping: true })
-        rows = data
-      }
+    const validRows = rows.filter((row) => row.name || row.Nombre)
+    if (!validRows.length) {
+      Alert.alert(
+        'Error de formato',
+        'No se encontró la columna "name" o "Nombre" en el archivo.',
+      )
+      return
+    }
 
-      if (!rows.length) {
-        Alert.alert('Sin datos', 'No se encontraron registros en el archivo.')
-        return
-      }
+    const apiUrl = clubId
+      ? `/api/fields/club/${clubId}`
+      : `/api/fields/team/${activeTeamId}`
 
-      const validRows = rows.filter((row) => row.name || row.Nombre)
-      if (!validRows.length) {
-        Alert.alert('Error de formato', 'No se encontró la columna "name" o "Nombre" en el archivo.')
-        return
-      }
+    let camposAñadidos = 0
+    let camposOmitidos = 0
+    const savedCampos: any[] = []
 
-      const apiUrl = clubId
-        ? `/api/fields/club/${clubId}`
-        : `/api/fields/team/${activeTeamId}`
-
-      let camposAñadidos = 0
-      let camposOmitidos = 0
-      const savedCampos: any[] = []
-
-      for (const row of validRows) {
-        try {
-          const res = await apiFetch(apiUrl, {
-            method: 'POST',
-            body: JSON.stringify({
-              name: row.name || row.Nombre || '',
-              address: row.address || row.Dirección || row.Direccion || '',
-              mapUrl: row.mapUrl || row['Maps URL'] || row['URL Maps'] || null,
-              photoUrl: row.photoUrl || row['Photo URL'] || null,
-            }),
-          })
-          if (res.ok) {
-            savedCampos.push(await res.json())
-            camposAñadidos++
-          } else {
-            camposOmitidos++
-          }
-        } catch {
+    for (const row of validRows) {
+      try {
+        const res = await apiFetch(apiUrl, {
+          method: 'POST',
+          body: JSON.stringify({
+            name:     row.name     || row.Nombre                          || '',
+            address:  row.address  || row.Dirección || row.Direccion      || '',
+            mapUrl:   row.mapUrl   || row['Maps URL'] || row['URL Maps']  || null,
+            photoUrl: row.photoUrl || row['Photo URL']                    || null,
+          }),
+        })
+        if (res.ok) {
+          savedCampos.push(await res.json())
+          camposAñadidos++
+        } else {
           camposOmitidos++
         }
+      } catch {
+        camposOmitidos++
       }
-
-      if (camposAñadidos > 0) {
-        setCampos((prev) => [...prev, ...savedCampos])
-        const msg = camposOmitidos > 0
-          ? `Se han importado ${camposAñadidos} campos nuevos. Se han omitido ${camposOmitidos} por estar duplicados.`
-          : `Se han importado ${camposAñadidos} campos nuevos correctamente.`
-        Alert.alert('Importación Completada', msg)
-      } else {
-        Alert.alert('Error', 'No se pudo guardar ningún campo. Verifica el formato del archivo.')
-      }
-    } catch {
-      Alert.alert('Error de formato', 'El archivo tiene un formato inválido o no se pudo leer.')
-    } finally {
-      setIsImporting(false)
     }
+
+    if (camposAñadidos > 0) {
+      setCampos((prev) => [...prev, ...savedCampos])
+      Alert.alert(
+        'Importación Completada',
+        camposOmitidos > 0
+          ? `Se han importado ${camposAñadidos} campos nuevos. Se han omitido ${camposOmitidos} por estar duplicados.`
+          : `Se han importado ${camposAñadidos} campos nuevos correctamente.`,
+      )
+    } else {
+      Alert.alert('Error', 'No se pudo guardar ningún campo. Verifica el formato del archivo.')
+    }
+  } catch {
+    Alert.alert('Error de formato', 'El archivo tiene un formato inválido o no se pudo leer.')
+  } finally {
+    setIsImporting(false)
   }
+}
 
   const cerrarModal = () => {
     setModal(false)
