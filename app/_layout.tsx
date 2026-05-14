@@ -119,6 +119,8 @@ export default function RootLayout() {
           if (!profile.phone || !profile.docNumber) {
             router.replace("/(completar-perfil)");
           }
+        }).catch(() => {
+          // Backend unreachable (e.g. Render cold start) — skip profile check
         });
       });
     }

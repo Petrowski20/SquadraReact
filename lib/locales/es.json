@@ -250,7 +250,8 @@
   "presidentManagement": "Gestión presidente",
   "logout": "Cerrar sesión"
 ,
-  "fields": "Campos"
+  "fields": "Campos",
+  "gallery": "Galería"
 },
 "profile": {
   "data": "Datos",

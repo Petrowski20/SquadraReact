@@ -36,6 +36,7 @@ function DrawerContent({ navigation }: { navigation: any }) {
     { ruta: "tablon", icono: "📢", label: t("nav.board") },
     { ruta: "mi-club", icono: "🏆", label: t("nav.myClub") },
     { ruta: "campos", icono: "📍", label: t("nav.fields") },
+    { ruta: "galeria", icono: "🖼️", label: t("nav.gallery") },
   ];
 
   const ITEMS_ROL = [
@@ -214,6 +215,7 @@ export default function ClubLayout() {
         }}
       />
       <Drawer.Screen name="campos" />
+      <Drawer.Screen name="galeria" />
       <Drawer.Screen
         name="mi-perfil"
         options={{ drawerItemStyle: { display: "none" } }}

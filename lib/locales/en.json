@@ -247,7 +247,8 @@
   "coachManagement": "Coach management",
   "presidentManagement": "President management",
   "logout": "Log out",
-  "fields": "Fields"
+  "fields": "Fields",
+  "gallery": "Gallery"
 },
 "profile": {
   "data": "Details",
