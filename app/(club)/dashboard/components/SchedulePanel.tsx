@@ -154,6 +154,18 @@ const EventCard = React.memo(function EventCard({
               </Text>
             </View>
           ) : null}
+          {event.goalsFor != null && event.goalsAgainst != null ? (
+            <View
+              style={[
+                styles.badge,
+                { backgroundColor: "#16a34a18", borderColor: "#16a34a35" },
+              ]}
+            >
+              <Text style={[styles.badgeText, { color: "#16a34a" }]}>
+                ⚽ {event.goalsFor} - {event.goalsAgainst}
+              </Text>
+            </View>
+          ) : null}
         </View>
       ) : null}
 

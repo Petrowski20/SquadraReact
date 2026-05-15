@@ -36,11 +36,11 @@ export default function GestionPresidente() {
     <View style={{ flex: 1, backgroundColor: c.fondo }}>
       {/* Cabecera */}
       <View style={{ padding: 24, paddingTop: 60, paddingBottom: 10 }}>
-        <Text style={{ fontSize: 14, fontWeight: "600", color: c.subtexto, marginBottom: 5 }}>
-          {`Temporada ${seasonLabel}`}
-        </Text>
-        <Text style={{ fontSize: 24, fontWeight: "bold", color: c.texto }}>
+        <Text style={{ fontSize: 24, fontWeight: "bold", color: c.texto, marginBottom: 4 }}>
           {"Administración"}
+        </Text>
+        <Text style={{ fontSize: 14, fontWeight: "600", color: c.subtexto }}>
+          {`Temporada ${seasonLabel}`}
         </Text>
       </View>
 

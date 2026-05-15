@@ -1,6 +1,8 @@
 {
   "common": {
-    "error": "Error"
+    "error": "Error",
+    "optional": "(opcional)",
+    "serverError": "Error de conexión con el servidor."
   },
   "register": {
     "title": "Crear cuenta",
@@ -33,7 +35,9 @@
     "successMessage": "Cuenta creada correctamente",
     "phone": "Teléfono",
     "phonePlaceholder": "600 000 000",
-    "errorPhone": "El teléfono es obligatorio"
+    "errorPhone": "El teléfono es obligatorio",
+    "errorDoc": "El número de documento es obligatorio.",
+    "errorCreate": "No se pudo crear la cuenta."
   },
   "login": {
   "title": "Bienvenido",
@@ -45,7 +49,13 @@
   "button": "Acceder",
   "forgotPassword": "¿Olvidaste tu contraseña?",
   "noAccount": "¿No tienes cuenta?",
-  "registerLink": "Regístrate"
+  "registerLink": "Regístrate",
+  "errorEmail": "Introduce un formato de email válido (ej: correo@dominio.com)",
+  "errorPassword": "La contraseña es obligatoria.",
+  "errorCredentials": "Las credenciales son incorrectas. Revisa tu email y contraseña.",
+  "errorGoogle": "Error al conectar con Google. Inténtalo de nuevo.",
+  "continueWithGoogle": "Continuar con Google",
+  "or": "o"
 },
 "forgotPassword": {
     "title": "Recuperar contraseña",
@@ -70,7 +80,15 @@
   "createClub": "Crear mi club",
   "createClubSub": "Soy el presidente del club",
   "joinClub": "Unirme a un club",
-  "joinClubSub": "Tengo un código de invitación"
+  "joinClubSub": "Tengo un código de invitación",
+  "logout": "Salir",
+  "pending": "Pendiente de aprobación",
+  "rol_president": "Presidente",
+  "rol_staff": "Entrenador",
+  "rol_coach": "Entrenador",
+  "rol_player": "Jugador",
+  "rol_relative": "Familiar",
+  "rol_other": "Miembro"
 },
 "joinClub": {
   "title": "Unirse a un club",
@@ -81,7 +99,27 @@
   "back": "Volver",
   "successTitle": "¡Solicitud enviada!",
   "successMessage": "El presidente del club debe aceptarte antes de que puedas acceder",
-  "successButton": "Ver estado"
+  "successButton": "Ver estado",
+  "joinTitle": "Unirme a un club",
+  "invCode": "Código de invitación",
+  "roleQuestion": "¿Con qué rol quieres unirte?",
+  "birthDate": "Fecha de nacimiento",
+  "licenseNumber": "Número de licencia",
+  "selectDate": "Seleccionar fecha...",
+  "childHasAccount": "¿Tu hijo/a ya tiene cuenta en la app?",
+  "playerNameHint": "Nombre del jugador (para que el presidente lo identifique)",
+  "messageLabel": "Mensaje para el presidente",
+  "submitButton": "Enviar solicitud",
+  "sentTitle": "Solicitud enviada",
+  "sentMessage": "El presidente del club revisará tu solicitud en breve.",
+  "understood": "Entendido",
+  "rol_player": "⚽ Jugador",
+  "rol_coach": "🎽 Entrenador",
+  "rol_relative": "👨‍👧 Familiar",
+  "rol_other": "👤 Otro",
+  "errorBirthDate": "Por favor, indica la fecha de nacimiento del jugador.",
+  "errorChildAccount": "Indica si tu hijo/a ya tiene cuenta en la app.",
+  "errorChildName": "Por favor, indica el nombre y apellidos de tu hijo/a."
 },
 "waiting": {
   "title": "Solicitud enviada",
@@ -89,7 +127,13 @@
   "message": "El presidente debe aprobar tu entrada. Te avisaremos cuando seas aceptado.",
   "refresh": "Actualizar estado",
   "back": "Volver",
-  "requestedClub": "Club solicitado"
+  "requestedClub": "Club solicitado",
+  "pendingTitle": "Solicitud pendiente",
+  "clubLabel": "Club",
+  "roleLabel": "Rol solicitado",
+  "messageLabel": "Tu mensaje",
+  "hint": "Desliza hacia abajo para actualizar el estado de tu solicitud.",
+  "goBack": "Volver atrás"
 },
 "createClub": {
   "title": "Crear club",
@@ -102,7 +146,11 @@
   "back": "Volver",
   "successTitle": "¡Club creado!",
   "successMessage": "Tu club ha sido creado correctamente. Comparte el código con tus jugadores.",
-  "invitationCode": "Código de invitación"
+  "invitationCode": "Código de invitación",
+  "pageTitle": "Nuevo club",
+  "logoUrl": "URL del logo",
+  "shareCode": "Comparte este código con tus jugadores para que puedan unirse.",
+  "startManaging": "Empezar a gestionar"
 },
 "home": {
   "greeting": "Buenas tardes",
@@ -112,20 +160,83 @@
   "noAnnouncements": "No hay anuncios recientes",
   "noEvents": "No hay eventos próximos",
   "activeSeason": "Temporada activa",
-  "yourTeam": "Tu equipo"
+  "yourTeam": "Tu equipo",
+  "goodMorning": "Buenos días",
+  "goodAfternoon": "Buenas tardes",
+  "goodEvening": "Buenas noches",
+  "presidencia": "Presidencia",
+  "welcomePresident": "¡Bienvenido, Presidente!",
+  "welcome": "¡Bienvenido!",
+  "noTeamPresident": "El siguiente paso es crear tu primer equipo desde el menú de gestión.",
+  "noTeamPlayer": "Aún no tienes un equipo asignado. Espera a que el club te añada.",
+  "goToManagement": "Ir a Gestión",
+  "seeBoard": "Ver tablón",
+  "noAnnouncementsYet": "No hay anuncios para mostrar aún.",
+  "noEventsScheduled": "No hay eventos programados."
 },
 "myClub": {
   "invitationCode": "Código de invitación",
   "copy": "Copiar",
   "staff": "Staff técnico",
-  "squad": "Plantilla"
+  "squad": "Plantilla",
+  "teamSelector": "Equipo",
+  "gender_male": "Masculino",
+  "gender_female": "Femenino",
+  "gender_mixed": "Mixto",
+  "playersLabel": "jugadores",
+  "sortRole": "Rol",
+  "sortName": "A-Z",
+  "sortPosition": "Posición",
+  "sortAge": "Edad",
+  "noStaff": "Sin staff registrado",
+  "noPlayers": "Sin jugadores registrados",
+  "pos_goalkeeper": "Portero",
+  "pos_defender": "Defensa",
+  "pos_midfielder": "Centrocampista",
+  "pos_forward": "Delantero",
+  "pos_unknown": "Jugador",
+  "staffRole_head_coach": "Entrenador Principal",
+  "staffRole_assistant": "Asistente",
+  "staffRole_fitness_coach": "Preparador Físico",
+  "staffRole_physiotherapist": "Fisioterapeuta",
+  "staffRole_delegate": "Delegado",
+  "staffRole_other": "Otro",
+  "birthDate": "🎂 Nacimiento",
+  "kitSize": "👕 Talla",
+  "viewStats": "📊 Ver estadísticas",
+  "season": "Temporada",
+  "noStats": "No hay estadísticas disponibles para esta temporada.",
+  "emptyTitle": "Tu club está vacío",
+  "emptySubCreate": "Ve a Gestión para crear tu primer equipo y empezar a añadir jugadores.",
+  "loadError": "No se pudo cargar la información",
+  "statGoals": "⚽ Goles",
+  "statAssists": "🅰️ Asistencias",
+  "statWins": "🏆 Partidos gan.",
+  "statMatches": "🎮 Partidos",
+  "statYellow": "🟨 T. Amarillas",
+  "statRed": "🟥 T. Rojas"
 },
 "announcements": {
   "title": "Tablón",
   "unread": "sin leer",
   "filter_todos": "Todos",
   "filter_club": "Club",
-  "filter_equipo": "Equipo"
+  "filter_equipo": "Equipo",
+  "newAnnouncementModal": "📢 Nuevo Anuncio",
+  "destination": "Destino",
+  "allClub": "🏛 Todo el club",
+  "titleLabel": "Título *",
+  "titlePlaceholder": "Título del anuncio...",
+  "contentLabel": "Contenido *",
+  "contentPlaceholder": "Escribe el contenido...",
+  "pinLabel": "📌 Fijar anuncio",
+  "publishing": "Publicando...",
+  "publishButton": "Publicar Anuncio",
+  "emptySection": "No hay anuncios en esta sección.",
+  "author": "Autor",
+  "date": "Fecha",
+  "season": "Temporada",
+  "pinned": "📌 FIJADO"
 },
 "schedule": {
   "title": "Horarios",
@@ -246,8 +357,8 @@
   "schedule": "Horarios",
   "board": "Tablón",
   "myClub": "Mi club",
-  "coachManagement": "Gestión entrenador",
-  "presidentManagement": "Gestión presidente",
+  "coachManagement": "Entrenador",
+  "presidentManagement": "Presidente",
   "logout": "Cerrar sesión"
 ,
   "fields": "Campos",
@@ -261,7 +372,34 @@
   "theme": "Tema",
   "themeAuto": "Auto",
   "themeLight": "Claro",
-  "themeDark": "Oscuro"
+  "themeDark": "Oscuro",
+  "changePassword": "Cambiar contraseña",
+  "changePasswordSub": "Introduce tu nueva contraseña",
+  "userManual": "Manual de Usuario",
+  "userManualSub": "Aprende a usar la aplicación",
+  "changeClub": "Cambiar de club",
+  "changeClubSub": "Vuelve al selector sin cerrar sesión",
+  "currentPassword": "Contraseña actual",
+  "newPassword": "Nueva contraseña (mín. 6)",
+  "confirmPasswordPlaceholder": "Confirmar contraseña",
+  "cancel": "Cancelar",
+  "save": "Guardar",
+  "pwErrorRequired": "Introduce tu contraseña actual",
+  "pwErrorMin": "Mínimo 6 caracteres",
+  "pwErrorSame": "La nueva contraseña no puede ser igual a la anterior",
+  "pwErrorMismatch": "Las contraseñas no coinciden",
+  "pwSuccess": "Contraseña actualizada correctamente",
+  "pwError": "Error al cambiar la contraseña",
+  "unknownUser": "Usuario"
+},
+"categories": {
+  "prebenjamin": "Prebenjamín",
+  "benjamin": "Benjamín",
+  "alevin": "Alevín",
+  "infantil": "Infantil",
+  "cadete": "Cadete",
+  "juvenil": "Juvenil",
+  "senior": "Senior"
 },
 "fields": {
   "title": "Campos",
@@ -278,6 +416,30 @@
   "noFields": "No hay campos registrados",
   "deactivate": "Desactivar",
   "activate": "Activar",
-  "active": "Activo"
+  "active": "Activo",
+  "howToGet": "📍 Cómo llegar",
+  "import": "📥 Importar",
+  "activeSection": "Activos",
+  "inactiveSection": "Inactivos",
+  "emptyNotice": "El club aún no ha registrado campos de entrenamiento",
+  "addFieldTitle": "📍 Añadir campo",
+  "photoUrlLabel": "Foto del campo"
+},
+"gallery": {
+  "emptyTitle": "Sin fotos todavía",
+  "emptyPresidentHint": "Pulsa el botón + para añadir la primera foto",
+  "emptyPlayerHint": "El presidente aún no ha subido fotos",
+  "editTitlePlaceholder": "Título",
+  "editDescPlaceholder": "Descripción",
+  "newPhoto": "Nueva foto",
+  "photosSelected": "{{count}} fotos seleccionadas",
+  "batchNote": "El título y descripción se aplicarán a todas las fotos",
+  "titlePlaceholder": "Título (opcional)",
+  "descPlaceholder": "Descripción (opcional)",
+  "teamQuestion": "¿A qué equipo van estas fotos?",
+  "noActiveTeams": "No hay equipos activos",
+  "cancel": "Cancelar",
+  "save": "Guardar",
+  "permissionDenied": "Se necesitan permisos para acceder a la galería"
 }
 }

@@ -32,7 +32,8 @@ export default function WebNavBar() {
     { path: '/tablon', label: t('nav.board', 'Tablón') },
     { path: '/mi-club', label: t('nav.myClub', 'Mi Club') },
     { path: '/campos', label: t('nav.fields', 'Campos') },
-    ...(esCoach ? [{ path: '/gestion-coach', label: t('nav.coachManagement', 'Gestión Entrenador') }] : []),
+    { path: '/galeria', label: t('nav.gallery', 'Galería') },
+    ...(esCoach ? [{ path: '/gestion-coach', label: t('nav.coachManagement', 'Entrenador') }] : []),
     ...(esPresidente ? [{ path: '/gestion-presidente', label: t('nav.presidentManagement', 'Gestión Presidencia') }] : []),
   ]
 

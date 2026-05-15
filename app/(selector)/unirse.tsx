@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { router } from 'expo-router'
@@ -26,6 +27,7 @@ function formatDisplayDate(isoDate: string): string {
 
 export default function Unirse() {
   const c = useTheme()
+  const { t } = useTranslation()
   const [codigo, setCodigo] = useState('')
   const [rolSeleccionado, setRolSeleccionado] = useState('PLAYER')
   const [mensaje, setMensaje] = useState('')
@@ -56,16 +58,16 @@ export default function Unirse() {
     if (!cleanCode || cleanCode.length !== 6) return
 
     if (rolSeleccionado === 'PLAYER' && !playerBirthDate) {
-      setErrorMessage('Por favor, indica la fecha de nacimiento del jugador.')
+      setErrorMessage(t('joinClub.errorBirthDate'))
       return
     }
     if (rolSeleccionado === 'RELATIVE' && childHasAccount === null) {
-      setErrorMessage('Indica si tu hijo/a ya tiene cuenta en la app.')
+      setErrorMessage(t('joinClub.errorChildAccount'))
       return
     }
     if (rolSeleccionado === 'RELATIVE' && childHasAccount === false) {
       if (!newChildFirstName.trim() || !newChildLastName.trim()) {
-        setErrorMessage('Por favor, indica el nombre y apellidos de tu hijo/a.')
+        setErrorMessage(t('joinClub.errorChildName'))
         return
       }
     }
@@ -112,7 +114,7 @@ export default function Unirse() {
         }
       }
     } catch {
-      setErrorMessage('Problema de conexión con el servidor.')
+      setErrorMessage(t('common.serverError'))
     } finally {
       setIsLoading(false)
     }
@@ -123,15 +125,15 @@ export default function Unirse() {
       <ScreenContainer>
         <View style={[styles.successContainer, { backgroundColor: c.fondo }]}>
           <Text style={{ fontSize: 60, marginBottom: 20 }}>📩</Text>
-          <Text style={[styles.title, { color: c.texto }]}>Solicitud enviada</Text>
+          <Text style={[styles.title, { color: c.texto }]}>{t('joinClub.sentTitle')}</Text>
           <Text style={[styles.subtitle, { color: c.subtexto }]}>
-            El presidente del club revisará tu solicitud en breve.
+            {t('joinClub.sentMessage')}
           </Text>
           <TouchableOpacity
             style={[styles.button, { backgroundColor: c.boton, width: '100%' }]}
             onPress={() => router.replace('/')}
           >
-            <Text style={styles.buttonText}>Entendido</Text>
+            <Text style={styles.buttonText}>{t('joinClub.understood')}</Text>
           </TouchableOpacity>
         </View>
       </ScreenContainer>
@@ -153,12 +155,12 @@ export default function Unirse() {
           showsVerticalScrollIndicator={false}
         >
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Text style={[styles.backText, { color: c.boton }]}>← Volver</Text>
+            <Text style={[styles.backText, { color: c.boton }]}>← {t('joinClub.back')}</Text>
           </TouchableOpacity>
 
-          <Text style={[styles.title, { color: c.texto }]}>Unirme a un club</Text>
+          <Text style={[styles.title, { color: c.texto }]}>{t('joinClub.joinTitle')}</Text>
 
-          <Text style={[styles.label, { color: c.subtexto }]}>Código de invitación</Text>
+          <Text style={[styles.label, { color: c.subtexto }]}>{t('joinClub.invCode')}</Text>
           <TextInput
             style={[styles.codeInput, { backgroundColor: c.input, color: c.texto, borderColor: c.bordeInput }]}
             placeholder="ABCDEF"
@@ -171,7 +173,7 @@ export default function Unirse() {
             autoCorrect={false}
           />
 
-          <Text style={[styles.label, { color: c.subtexto }]}>¿Con qué rol quieres unirte?</Text>
+          <Text style={[styles.label, { color: c.subtexto }]}>{t('joinClub.roleQuestion')}</Text>
           <View style={styles.rolesGrid}>
             {ROLES.map((rol) => {
               const isSelected = rolSeleccionado === rol.value
@@ -189,7 +191,7 @@ export default function Unirse() {
                   activeOpacity={0.8}
                 >
                   <Text style={[styles.rolText, { color: isSelected ? 'white' : c.texto }]}>
-                    {rol.label}
+                    {t('joinClub.rol_' + rol.value.toLowerCase())}
                   </Text>
                 </TouchableOpacity>
               )
@@ -199,7 +201,7 @@ export default function Unirse() {
           {/* PLAYER */}
           {rolSeleccionado === 'PLAYER' && (
             <View style={styles.extraFields}>
-              <Text style={[styles.label, { color: c.subtexto }]}>Fecha de nacimiento *</Text>
+              <Text style={[styles.label, { color: c.subtexto }]}>{t('joinClub.birthDate')} *</Text>
               {Platform.OS === 'web' ? (
                 <View style={[styles.webDateWrapper, { backgroundColor: c.input, borderColor: c.bordeInput }]}>
                   <input
@@ -220,7 +222,7 @@ export default function Unirse() {
                     onPress={() => setShowPlayerDatePicker(true)}
                   >
                     <Text style={{ color: playerBirthDate ? c.texto : c.subtexto, fontSize: 15 }}>
-                      {playerBirthDate ? formatDisplayDate(playerBirthDate) : 'Seleccionar fecha...'}
+                      {playerBirthDate ? formatDisplayDate(playerBirthDate) : t('joinClub.selectDate')}
                     </Text>
                   </TouchableOpacity>
                   {showPlayerDatePicker && (
@@ -247,8 +249,8 @@ export default function Unirse() {
           {rolSeleccionado === 'COACH' && (
             <View style={styles.extraFields}>
               <Text style={[styles.label, { color: c.subtexto }]}>
-                Número de licencia{' '}
-                <Text style={{ fontStyle: 'italic' }}>(opcional)</Text>
+                {t('joinClub.licenseNumber')}{' '}
+                <Text style={{ fontStyle: 'italic' }}>{t('common.optional')}</Text>
               </Text>
               <TextInput
                 style={[styles.fieldInput, { backgroundColor: c.input, color: c.texto, borderColor: c.bordeInput }]}
@@ -264,7 +266,7 @@ export default function Unirse() {
           {/* RELATIVE */}
           {rolSeleccionado === 'RELATIVE' && (
             <View style={styles.extraFields}>
-              <Text style={[styles.label, { color: c.subtexto }]}>¿Tu hijo/a ya tiene cuenta en la app? *</Text>
+              <Text style={[styles.label, { color: c.subtexto }]}>{t('joinClub.childHasAccount')} *</Text>
               <View style={styles.radioRow}>
                 {([{ label: 'Sí', value: true }, { label: 'No', value: false }] as const).map((opt) => (
                   <TouchableOpacity
@@ -288,7 +290,7 @@ export default function Unirse() {
               {childHasAccount === true && (
                 <>
                   <Text style={[styles.label, { color: c.subtexto, marginTop: 12 }]}>
-                    Nombre del jugador (para que el presidente lo identifique)
+                    {t('joinClub.playerNameHint')}
                   </Text>
                   <TextInput
                     style={[styles.fieldInput, { backgroundColor: c.input, color: c.texto, borderColor: c.bordeInput }]}
@@ -302,7 +304,7 @@ export default function Unirse() {
 
               {childHasAccount === false && (
                 <>
-                  <Text style={[styles.label, { color: c.subtexto, marginTop: 12 }]}>Nombre *</Text>
+                  <Text style={[styles.label, { color: c.subtexto, marginTop: 12 }]}>{t('register.firstName')} *</Text>
                   <TextInput
                     style={[styles.fieldInput, { backgroundColor: c.input, color: c.texto, borderColor: c.bordeInput }]}
                     placeholder="Nombre"
@@ -310,7 +312,7 @@ export default function Unirse() {
                     value={newChildFirstName}
                     onChangeText={setNewChildFirstName}
                   />
-                  <Text style={[styles.label, { color: c.subtexto, marginTop: 12 }]}>Apellidos *</Text>
+                  <Text style={[styles.label, { color: c.subtexto, marginTop: 12 }]}>{t('register.lastName')} *</Text>
                   <TextInput
                     style={[styles.fieldInput, { backgroundColor: c.input, color: c.texto, borderColor: c.bordeInput }]}
                     placeholder="Apellidos"
@@ -319,8 +321,8 @@ export default function Unirse() {
                     onChangeText={setNewChildLastName}
                   />
                   <Text style={[styles.label, { color: c.subtexto, marginTop: 12 }]}>
-                    Fecha de nacimiento{' '}
-                    <Text style={{ fontStyle: 'italic' }}>(opcional)</Text>
+                    {t('joinClub.birthDate')}{' '}
+                    <Text style={{ fontStyle: 'italic' }}>{t('common.optional')}</Text>
                   </Text>
                   {Platform.OS === 'web' ? (
                     <View style={[styles.webDateWrapper, { backgroundColor: c.input, borderColor: c.bordeInput }]}>
@@ -342,7 +344,7 @@ export default function Unirse() {
                         onPress={() => setShowChildDatePicker(true)}
                       >
                         <Text style={{ color: newChildBirthDate ? c.texto : c.subtexto, fontSize: 15 }}>
-                          {newChildBirthDate ? formatDisplayDate(newChildBirthDate) : 'Seleccionar fecha...'}
+                          {newChildBirthDate ? formatDisplayDate(newChildBirthDate) : t('joinClub.selectDate')}
                         </Text>
                       </TouchableOpacity>
                       {showChildDatePicker && (
@@ -368,8 +370,8 @@ export default function Unirse() {
           )}
 
           <Text style={[styles.label, { color: c.subtexto }]}>
-            Mensaje para el presidente{' '}
-            <Text style={{ color: c.subtexto, fontStyle: 'italic' }}>(opcional)</Text>
+            {t('joinClub.messageLabel')}{' '}
+            <Text style={{ color: c.subtexto, fontStyle: 'italic' }}>{t('common.optional')}</Text>
           </Text>
           <TextInput
             style={[styles.messageInput, { backgroundColor: c.input, color: c.texto, borderColor: c.bordeInput }]}
@@ -397,7 +399,7 @@ export default function Unirse() {
           >
             {isLoading
               ? <ActivityIndicator color="white" />
-              : <Text style={styles.buttonText}>Enviar solicitud</Text>
+              : <Text style={styles.buttonText}>{t('joinClub.submitButton')}</Text>
             }
           </TouchableOpacity>
         </ScrollView>

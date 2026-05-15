@@ -1,19 +1,15 @@
 import { router, useFocusEffect } from 'expo-router'
 import { useCallback, useState } from 'react'
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View, RefreshControl } from 'react-native'
+import { useTranslation } from 'react-i18next'
 import { apiFetch } from '../../lib/api'
 import { useTheme } from '../../lib/useTheme'
 import ScreenContainer from '../../components/ScreenContainer'
 
-const ROL_LABEL: Record<string, string> = {
-  PLAYER: '⚽ Jugador',
-  COACH: '🎽 Entrenador',
-  RELATIVE: '👨‍👧 Familiar',
-  OTHER: '👤 Otro',
-}
 
 export default function Esperando() {
   const c = useTheme()
+  const { t } = useTranslation()
   const [request, setRequest] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
@@ -51,26 +47,26 @@ export default function Esperando() {
         <Text style={{ fontSize: 40 }}>⏳</Text>
       </View>
 
-      <Text style={[styles.title, { color: c.texto }]}>Solicitud pendiente</Text>
+      <Text style={[styles.title, { color: c.texto }]}>{t('waiting.pendingTitle')}</Text>
 
       {request && (
         <View style={[styles.infoCard, { backgroundColor: c.input, borderColor: c.bordeInput }]}>
           <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: c.subtexto }]}>Club</Text>
+            <Text style={[styles.infoLabel, { color: c.subtexto }]}>{t('waiting.clubLabel')}</Text>
             <Text style={[styles.infoValue, { color: c.texto }]}>{request.clubName}</Text>
           </View>
           <View style={[styles.divider, { backgroundColor: c.bordeInput }]} />
           <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: c.subtexto }]}>Rol solicitado</Text>
+            <Text style={[styles.infoLabel, { color: c.subtexto }]}>{t('waiting.roleLabel')}</Text>
             <Text style={[styles.infoValue, { color: c.texto }]}>
-              {ROL_LABEL[request.requestedRole] || request.requestedRole}
+              {t('joinClub.rol_' + request.requestedRole.toLowerCase(), { defaultValue: request.requestedRole })}
             </Text>
           </View>
           {request.message && (
             <>
               <View style={[styles.divider, { backgroundColor: c.bordeInput }]} />
               <View style={styles.infoRow}>
-                <Text style={[styles.infoLabel, { color: c.subtexto }]}>Tu mensaje</Text>
+                <Text style={[styles.infoLabel, { color: c.subtexto }]}>{t('waiting.messageLabel')}</Text>
                 <Text style={[styles.infoValue, { color: c.texto, flex: 1, textAlign: 'right' }]}>
                   {request.message}
                 </Text>
@@ -81,14 +77,14 @@ export default function Esperando() {
       )}
 
       <Text style={[styles.hint, { color: c.subtexto }]}>
-        Desliza hacia abajo para actualizar el estado de tu solicitud.
+        {t('waiting.hint')}
       </Text>
 
       <TouchableOpacity
         style={[styles.backButton, { borderColor: c.bordeInput, borderWidth: 1 }]}
         onPress={() => router.replace('/')}
       >
-        <Text style={[styles.backButtonText, { color: c.texto }]}>Volver atrás</Text>
+        <Text style={[styles.backButtonText, { color: c.texto }]}>{t('waiting.goBack')}</Text>
       </TouchableOpacity>
     </ScrollView>
     </ScreenContainer>

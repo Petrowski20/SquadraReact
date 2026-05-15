@@ -2,6 +2,7 @@ import * as ImageManipulator from 'expo-image-manipulator'
 import * as ImagePicker from 'expo-image-picker'
 import { useFocusEffect } from 'expo-router'
 import { useCallback, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   ActivityIndicator,
   Dimensions,
@@ -26,7 +27,7 @@ import { useTheme } from '../../lib/useTheme'
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://squadraapi.onrender.com'
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
-const THUMB_SIZE = Math.floor((SCREEN_WIDTH - 6) / 3)
+const THUMB_SIZE = Math.floor((SCREEN_WIDTH - 8) / 3)
 
 interface GalleryImage {
   id: number
@@ -51,6 +52,7 @@ function teamLabel(t: TeamSummary) {
 }
 
 export default function Galeria() {
+  const { t } = useTranslation()
   const c = useTheme()
   const activeClubId = useAuthStore((s: any) => s.activeClubId)
   const activeTeamId = useAuthStore((s: any) => s.activeTeamId)
@@ -64,16 +66,19 @@ export default function Galeria() {
   const [refreshing, setRefreshing] = useState(false)
 
   const [fullscreenImage, setFullscreenImage] = useState<GalleryImage | null>(null)
+  const [editMode, setEditMode] = useState(false)
+  const [editTitle, setEditTitle] = useState('')
+  const [editDescription, setEditDescription] = useState('')
 
   const [teams, setTeams] = useState<TeamSummary[]>([])
-  const [pendingUri, setPendingUri] = useState<string | null>(null)
+  const [pendingUris, setPendingUris] = useState<string[]>([])
   const [showTeamPicker, setShowTeamPicker] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
 
   const resetUploadState = () => {
-    setPendingUri(null)
+    setPendingUris([])
     setTitle('')
     setDescription('')
   }
@@ -118,60 +123,65 @@ export default function Galeria() {
   const handleFAB = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
     if (status !== 'granted') {
-      if (Platform.OS === 'web') window.alert('Se necesitan permisos para acceder a la galería')
+      if (Platform.OS === 'web') window.alert(t('gallery.permissionDenied'))
       return
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: false,
+      allowsMultipleSelection: true,
       quality: 0.9,
     })
 
     if (result.canceled || !result.assets?.length) return
 
-    const manipulated = await ImageManipulator.manipulateAsync(
-      result.assets[0].uri,
-      [{ resize: { width: 1200 } }],
-      { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
-    )
-
-    setPendingUri(manipulated.uri)
+    setPendingUris(result.assets.map((a) => a.uri))
     await fetchTeams()
     setShowTeamPicker(true)
   }
 
   const handleUpload = async (teamId: number) => {
-    if (!pendingUri || !activeClubId || !token) return
+    if (!pendingUris.length || !activeClubId || !token) return
     setShowTeamPicker(false)
     setUploading(true)
 
     try {
-      const formData = new FormData()
-      if (Platform.OS === 'web') {
-        const blob = await fetch(pendingUri).then((r) => r.blob())
-        formData.append('file', blob, 'gallery.jpg')
-      } else {
-        formData.append('file', { uri: pendingUri, name: 'gallery.jpg', type: 'image/jpeg' } as any)
-      }
+      const uploaded = await Promise.all(
+        pendingUris.map(async (uri) => {
+          const manipulated = await ImageManipulator.manipulateAsync(
+            uri,
+            [{ resize: { width: 1200 } }],
+            { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+          )
 
-      const params = new URLSearchParams({
-        clubId: String(activeClubId),
-        teamId: String(teamId),
-        ...(title.trim() ? { title: title.trim() } : {}),
-        ...(description.trim() ? { description: description.trim() } : {}),
-      })
+          const formData = new FormData()
+          if (Platform.OS === 'web') {
+            const blob = await fetch(manipulated.uri).then((r) => r.blob())
+            formData.append('file', blob, 'gallery.jpg')
+          } else {
+            formData.append('file', { uri: manipulated.uri, name: 'gallery.jpg', type: 'image/jpeg' } as any)
+          }
 
-      const res = await fetch(`${API_URL}/api/gallery/upload?${params.toString()}`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      })
+          const params = new URLSearchParams({
+            clubId: String(activeClubId),
+            teamId: String(teamId),
+            ...(title.trim() ? { title: title.trim() } : {}),
+            ...(description.trim() ? { description: description.trim() } : {}),
+          })
 
-      if (!res.ok) throw new Error(await res.text())
+          const res = await fetch(`${API_URL}/api/gallery/upload?${params.toString()}`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: formData,
+          })
 
-      const newImg: GalleryImage = await res.json()
-      setImages((prev) => [newImg, ...prev])
+          if (!res.ok) throw new Error(await res.text())
+          return (await res.json()) as GalleryImage
+        })
+      )
+
+      setImages((prev) => [...uploaded.reverse(), ...prev])
     } catch (e: any) {
       if (Platform.OS === 'web') window.alert('Error: ' + e.message)
     } finally {
@@ -183,6 +193,43 @@ export default function Galeria() {
   const handleCancelPicker = () => {
     setShowTeamPicker(false)
     resetUploadState()
+  }
+
+  const handleDeleteImage = async () => {
+    if (!fullscreenImage) return
+    const img = fullscreenImage
+    setFullscreenImage(null)
+    setImages((prev) => prev.filter((i) => i.id !== img.id))
+    try {
+      await apiFetch(`/api/gallery/${img.id}?clubId=${activeClubId}`, { method: 'DELETE' })
+    } catch (e) {
+      console.error('Error deleting image', e)
+    }
+  }
+
+  const handleOpenEdit = () => {
+    if (!fullscreenImage) return
+    setEditTitle(fullscreenImage.title ?? '')
+    setEditDescription(fullscreenImage.description ?? '')
+    setEditMode(true)
+  }
+
+  const handleSaveEdit = async () => {
+    if (!fullscreenImage) return
+    try {
+      const res = await apiFetch(`/api/gallery/${fullscreenImage.id}?clubId=${activeClubId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ title: editTitle, description: editDescription }),
+      })
+      if (res.ok) {
+        const updated: GalleryImage = await res.json()
+        setImages((prev) => prev.map((i) => (i.id === updated.id ? updated : i)))
+        setFullscreenImage(updated)
+      }
+    } catch (e) {
+      console.error('Error updating image', e)
+    }
+    setEditMode(false)
   }
 
   const renderThumb = ({ item }: { item: GalleryImage }) => (
@@ -205,11 +252,9 @@ export default function Galeria() {
         ) : images.length === 0 ? (
           <View style={styles.center}>
             <Text style={styles.emptyIcon}>🖼️</Text>
-            <Text style={[styles.emptyTitle, { color: c.texto }]}>Sin fotos todavía</Text>
+            <Text style={[styles.emptyTitle, { color: c.texto }]}>{t('gallery.emptyTitle')}</Text>
             <Text style={[styles.emptySubtitle, { color: c.subtexto }]}>
-              {isPresident
-                ? 'Pulsa el botón + para añadir la primera foto'
-                : 'El presidente aún no ha subido fotos'}
+              {t(isPresident ? 'gallery.emptyPresidentHint' : 'gallery.emptyPlayerHint')}
             </Text>
           </View>
         ) : (
@@ -244,9 +289,12 @@ export default function Galeria() {
         visible={!!fullscreenImage}
         transparent
         animationType="fade"
-        onRequestClose={() => setFullscreenImage(null)}
+        onRequestClose={() => { setEditMode(false); setFullscreenImage(null) }}
       >
-        <Pressable style={styles.fullscreenOverlay} onPress={() => setFullscreenImage(null)}>
+        <Pressable
+          style={styles.fullscreenOverlay}
+          onPress={() => { if (!editMode) setFullscreenImage(null) }}
+        >
           {fullscreenImage && (
             <Image
               source={{ uri: fullscreenImage.imageUrl }}
@@ -256,7 +304,7 @@ export default function Galeria() {
           )}
 
           {/* Caption overlay */}
-          {(fullscreenImage?.title || fullscreenImage?.description) && (
+          {!editMode && (fullscreenImage?.title || fullscreenImage?.description) && (
             <View style={styles.captionOverlay}>
               {fullscreenImage.title ? (
                 <Text style={styles.captionTitle}>{fullscreenImage.title}</Text>
@@ -267,9 +315,65 @@ export default function Galeria() {
             </View>
           )}
 
-          <TouchableOpacity style={styles.closeBtn} onPress={() => setFullscreenImage(null)}>
-            <Text style={styles.closeBtnText}>✕</Text>
-          </TouchableOpacity>
+          {/* Top-right controls: edit/delete para presidentes + cerrar */}
+          <View style={styles.viewerControls}>
+            {isPresident && !editMode && (
+              <>
+                <TouchableOpacity style={styles.viewerBtn} onPress={handleOpenEdit}>
+                  <Text style={styles.viewerBtnText}>✏️</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.viewerBtn} onPress={handleDeleteImage}>
+                  <Text style={styles.viewerBtnText}>🗑️</Text>
+                </TouchableOpacity>
+              </>
+            )}
+            <TouchableOpacity
+              style={styles.viewerBtn}
+              onPress={() => { setEditMode(false); setFullscreenImage(null) }}
+            >
+              <Text style={styles.closeBtnText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Overlay de edición inline */}
+          {editMode && fullscreenImage && (
+            <Pressable style={styles.editOverlay} onPress={() => {}}>
+              <TextInput
+                style={styles.editInput}
+                value={editTitle}
+                onChangeText={setEditTitle}
+                placeholder={t('gallery.editTitlePlaceholder')}
+                placeholderTextColor="rgba(255,255,255,0.5)"
+                maxLength={80}
+                returnKeyType="next"
+              />
+              <TextInput
+                style={[styles.editInput, styles.editInputMultiline]}
+                value={editDescription}
+                onChangeText={setEditDescription}
+                placeholder={t('gallery.editDescPlaceholder')}
+                placeholderTextColor="rgba(255,255,255,0.5)"
+                multiline
+                numberOfLines={3}
+                maxLength={300}
+                textAlignVertical="top"
+              />
+              <View style={styles.editActions}>
+                <TouchableOpacity
+                  style={[styles.editActionBtn, { backgroundColor: 'rgba(255,255,255,0.2)' }]}
+                  onPress={() => setEditMode(false)}
+                >
+                  <Text style={styles.editActionText}>{t('gallery.cancel')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.editActionBtn, { backgroundColor: 'rgba(34,197,94,0.8)' }]}
+                  onPress={handleSaveEdit}
+                >
+                  <Text style={styles.editActionText}>{t('gallery.save')}</Text>
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          )}
         </Pressable>
       </Modal>
 
@@ -286,12 +390,21 @@ export default function Galeria() {
         >
           <Pressable style={styles.pickerBackdrop} onPress={handleCancelPicker} />
           <View style={[styles.pickerCard, { backgroundColor: c.fondo }]}>
-            <Text style={[styles.pickerTitle, { color: c.texto }]}>Nueva foto</Text>
+            <Text style={[styles.pickerTitle, { color: c.texto }]}>
+              {pendingUris.length > 1
+                ? t('gallery.photosSelected', { count: pendingUris.length })
+                : t('gallery.newPhoto')}
+            </Text>
+            {pendingUris.length > 1 && (
+              <Text style={[styles.pickerBatchNote, { color: c.subtexto }]}>
+                {t('gallery.batchNote')}
+              </Text>
+            )}
 
             {/* Título */}
             <TextInput
               style={[styles.metaInput, { backgroundColor: c.input, borderColor: c.bordeInput, color: c.texto }]}
-              placeholder="Título (opcional)"
+              placeholder={t('gallery.titlePlaceholder')}
               placeholderTextColor={c.subtexto}
               value={title}
               onChangeText={setTitle}
@@ -302,7 +415,7 @@ export default function Galeria() {
             {/* Descripción */}
             <TextInput
               style={[styles.metaInput, styles.metaInputMultiline, { backgroundColor: c.input, borderColor: c.bordeInput, color: c.texto }]}
-              placeholder="Descripción (opcional)"
+              placeholder={t('gallery.descPlaceholder')}
               placeholderTextColor={c.subtexto}
               value={description}
               onChangeText={setDescription}
@@ -312,11 +425,11 @@ export default function Galeria() {
               textAlignVertical="top"
             />
 
-            <Text style={[styles.pickerSubtitle, { color: c.subtexto }]}>¿A qué equipo va esta foto?</Text>
+            <Text style={[styles.pickerSubtitle, { color: c.subtexto }]}>{t('gallery.teamQuestion')}</Text>
 
             <ScrollView style={styles.teamList} showsVerticalScrollIndicator={false}>
               {teams.length === 0 ? (
-                <Text style={[styles.pickerEmpty, { color: c.subtexto }]}>No hay equipos activos</Text>
+                <Text style={[styles.pickerEmpty, { color: c.subtexto }]}>{t('gallery.noActiveTeams')}</Text>
               ) : (
                 teams.map((team) => (
                   <TouchableOpacity
@@ -331,7 +444,7 @@ export default function Galeria() {
             </ScrollView>
 
             <TouchableOpacity onPress={handleCancelPicker} style={styles.pickerCancel}>
-              <Text style={{ color: c.subtexto }}>Cancelar</Text>
+              <Text style={{ color: c.subtexto }}>{t('gallery.cancel')}</Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -347,7 +460,7 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 18, fontWeight: '700', textAlign: 'center' },
   emptySubtitle: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
   grid: { gap: 2, paddingBottom: 80 },
-  thumb: { margin: 1 },
+  thumb: { margin: 2 },
   thumbImage: { width: '100%', height: '100%' },
   fab: {
     position: 'absolute',
@@ -366,7 +479,7 @@ const styles = StyleSheet.create({
   },
   fabIcon: { color: '#fff', fontSize: 28, lineHeight: 32 },
 
-  // Fullscreen
+  // Fullscreen viewer
   fullscreenOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.95)',
@@ -387,10 +500,15 @@ const styles = StyleSheet.create({
   },
   captionTitle: { color: '#fff', fontSize: 16, fontWeight: '700' },
   captionDesc: { color: 'rgba(255,255,255,0.85)', fontSize: 13, lineHeight: 18 },
-  closeBtn: {
+  viewerControls: {
     position: 'absolute',
     top: 50,
     right: 20,
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  viewerBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
@@ -398,7 +516,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  viewerBtnText: { fontSize: 16 },
   closeBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  editOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 20,
+    paddingBottom: 40,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    gap: 10,
+  },
+  editInput: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: '#fff',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  editInputMultiline: {
+    minHeight: 72,
+    paddingTop: 10,
+  },
+  editActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  editActionBtn: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  editActionText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 15,
+  },
 
   // Team picker / metadata sheet
   pickerOverlay: {
@@ -418,6 +576,7 @@ const styles = StyleSheet.create({
     maxHeight: '85%',
   },
   pickerTitle: { fontSize: 17, fontWeight: '700' },
+  pickerBatchNote: { fontSize: 12, marginTop: -4 },
   pickerSubtitle: { fontSize: 13, fontWeight: '600', marginTop: 4 },
   pickerEmpty: { fontSize: 14, textAlign: 'center', paddingVertical: 16 },
   metaInput: {

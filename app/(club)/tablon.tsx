@@ -17,6 +17,7 @@ import {
   UIManager,
   View,
 } from "react-native";
+import { useTranslation } from "react-i18next";
 import { apiFetch } from "../../lib/api";
 import { useAuthStore } from "../../lib/store";
 import { useTheme } from "../../lib/useTheme";
@@ -41,6 +42,7 @@ const showAlert = (titulo: string, mensaje: string) => {
 };
 
 export default function Tablon() {
+  const { t } = useTranslation();
   const getAutomaticSeason = () => {
     const now = new Date();
     const year = now.getFullYear();
@@ -301,8 +303,10 @@ export default function Tablon() {
                 ]}
               >
                 {f === "TODOS"
-                  ? "Todos"
-                  : f.charAt(0) + f.slice(1).toLowerCase()}
+                  ? t('announcements.filter_todos')
+                  : f === "CLUB"
+                  ? t('announcements.filter_club')
+                  : t('announcements.filter_equipo')}
               </Text>
             </TouchableOpacity>
           ))}
@@ -337,7 +341,7 @@ export default function Tablon() {
           <View style={styles.emptyState}>
             <Text style={{ fontSize: 40, marginBottom: 10 }}>📢</Text>
             <Text style={[styles.emptyText, { color: c.subtexto }]}>
-              No hay anuncios en esta sección.
+              {t('announcements.emptySection')}
             </Text>
           </View>
         ) : (
@@ -372,7 +376,7 @@ export default function Tablon() {
                         ]}
                       >
                         <Text style={[styles.pinnedText, { color: c.boton }]}>
-                          📌 FIJADO
+                          {t('announcements.pinned')}
                         </Text>
                       </View>
                     )}
@@ -442,7 +446,7 @@ export default function Tablon() {
                   >
                     <View style={styles.footerItem}>
                       <Text style={[styles.footerLabel, { color: c.subtexto }]}>
-                        Autor
+                        {t('announcements.author')}
                       </Text>
                       <Text style={[styles.footerValue, { color: c.texto }]}>
                         {a.autor || a.authorName}
@@ -450,7 +454,7 @@ export default function Tablon() {
                     </View>
                     <View style={styles.footerItem}>
                       <Text style={[styles.footerLabel, { color: c.subtexto }]}>
-                        Fecha
+                        {t('announcements.date')}
                       </Text>
                       <Text style={[styles.footerValue, { color: c.texto }]}>
                         {a.fecha || a.publishedAt}
@@ -461,7 +465,7 @@ export default function Tablon() {
                         <Text
                           style={[styles.footerLabel, { color: c.subtexto }]}
                         >
-                          Temporada
+                          {t('announcements.season')}
                         </Text>
                         <Text style={[styles.footerValue, { color: c.texto }]}>
                           {a.seasonLabel}
@@ -497,7 +501,7 @@ export default function Tablon() {
           >
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitulo, { color: c.texto }]}>
-                📢 Nuevo Anuncio
+                {t('announcements.newAnnouncementModal')}
               </Text>
               <TouchableOpacity onPress={cerrarModal} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Text style={{ color: c.subtexto, fontSize: 20 }}>✕</Text>
@@ -510,7 +514,7 @@ export default function Tablon() {
               {isPresident && (
                 <View>
                   <Text style={[styles.label, { color: c.subtexto }]}>
-                    Destino
+                    {t('announcements.destination')}
                   </Text>
                   <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
                     <TouchableOpacity
@@ -531,7 +535,7 @@ export default function Tablon() {
                           fontWeight: "600",
                         }}
                       >
-                        🏛 Todo el club
+                        {t('announcements.allClub')}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -577,7 +581,7 @@ export default function Tablon() {
 
               <View>
                 <Text style={[styles.label, { color: c.subtexto }]}>
-                  Título *
+                  {t('announcements.titleLabel')}
                 </Text>
                 <TextInput
                   style={[
@@ -590,14 +594,14 @@ export default function Tablon() {
                   ]}
                   value={nuevoTitulo}
                   onChangeText={setNuevoTitulo}
-                  placeholder="Título del anuncio..."
+                  placeholder={t('announcements.titlePlaceholder')}
                   placeholderTextColor={c.subtexto}
                 />
               </View>
 
               <View>
                 <Text style={[styles.label, { color: c.subtexto }]}>
-                  Contenido *
+                  {t('announcements.contentLabel')}
                 </Text>
                 <TextInput
                   style={[
@@ -612,7 +616,7 @@ export default function Tablon() {
                   ]}
                   value={nuevoContenido}
                   onChangeText={setNuevoContenido}
-                  placeholder="Escribe el contenido..."
+                  placeholder={t('announcements.contentPlaceholder')}
                   placeholderTextColor={c.subtexto}
                   multiline
                 />
@@ -642,7 +646,7 @@ export default function Tablon() {
                     )}
                   </View>
                   <Text style={{ color: c.texto, fontWeight: "500" }}>
-                    📌 Fijar anuncio
+                    {t('announcements.pinLabel')}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -657,7 +661,7 @@ export default function Tablon() {
                 activeOpacity={0.85}
               >
                 <Text style={styles.btnGuardarText}>
-                  {creando ? "Publicando..." : "Publicar Anuncio"}
+                  {creando ? t('announcements.publishing') : t('announcements.publishButton')}
                 </Text>
               </TouchableOpacity>
             </View>

@@ -1,31 +1,36 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, ScrollView, Modal, TextInput, StyleSheet, Alert, KeyboardAvoidingView, Platform } from "react-native";
+import { useTranslation } from "react-i18next";
 import { apiFetch } from "../../lib/api";
 import { useAuthStore } from "../../lib/store";
 import { useTheme } from "../../lib/useTheme";
 
-type TeamCategory = "U6" | "U8" | "U10" | "U12" | "U14" | "U16" | "U19" | "SENIOR";
 type TeamGender = "MALE" | "FEMALE" | "MIXED";
 
-interface Team { id: number; category: TeamCategory; gender: TeamGender; suffix: string; seasonLabel: string; }
+interface Team { id: number; category: string; gender: TeamGender; suffix: string; seasonLabel: string; }
 
 const GENDER_OPTIONS: { value: TeamGender; label: string }[] = [
   { value: "MALE", label: "♂ Masc." }, { value: "FEMALE", label: "♀ Fem." }, { value: "MIXED", label: "⚥ Mixto" },
 ];
-const CATEGORY_OPTIONS: { value: TeamCategory; label: string }[] = [
-  { value: "U6", label: "Sub-6" }, { value: "U8", label: "Sub-8" }, { value: "U10", label: "Sub-10" },
-  { value: "U12", label: "Sub-12" }, { value: "U14", label: "Sub-14" }, { value: "U16", label: "Sub-16" },
-  { value: "U19", label: "Sub-19" }, { value: "SENIOR", label: "Senior" },
+const CATEGORY_OPTIONS: { value: string; labelKey: string }[] = [
+  { value: "Prebenjamín",  labelKey: "categories.prebenjamin" },
+  { value: "Benjamín",     labelKey: "categories.benjamin"    },
+  { value: "Alevín",       labelKey: "categories.alevin"      },
+  { value: "Infantil",     labelKey: "categories.infantil"    },
+  { value: "Cadete",       labelKey: "categories.cadete"      },
+  { value: "Juvenil",      labelKey: "categories.juvenil"     },
+  { value: "Senior",       labelKey: "categories.senior"      },
 ];
 
 export default function TabEquipos() {
   const c = useTheme();
+  const { t } = useTranslation();
   const { activeClubId: clubId, activeSeasonName } = useAuthStore();
   const seasonLabel = activeSeasonName || "24-25";
 
   const [teams, setTeams] = useState<Team[]>([]);
   const [createTeamModal, setCreateTeamModal] = useState(false);
-  const [teamForm, setTeamForm] = useState<Partial<{ category: TeamCategory; gender: TeamGender; suffix: string }>>({ gender: "MALE" });
+  const [teamForm, setTeamForm] = useState<Partial<{ category: string; gender: TeamGender; suffix: string }>>({ gender: "MALE" });
 
   const fetchTeams = useCallback(async () => {
     try {
@@ -83,17 +88,21 @@ export default function TabEquipos() {
         </View>
       )}
 
-      {teams.map((t) => (
-        <View key={t.id} style={[styles.card, { backgroundColor: c.input, borderColor: c.bordeInput, flexDirection: "row", alignItems: "center" }]}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.cardTitle, { color: c.texto }]}>{`${t.category} · ${t.gender === "MALE" ? "Masc." : t.gender === "FEMALE" ? "Fem." : "Mixto"} · ${t.suffix}`}</Text>
-            <Text style={{ color: c.subtexto, fontSize: 12, marginTop: 4 }}>{`Temporada ${t.seasonLabel}`}</Text>
+      {teams.map((team) => {
+        const catOption = CATEGORY_OPTIONS.find(c => c.value === team.category);
+        const catLabel = catOption ? t(catOption.labelKey) : team.category;
+        return (
+          <View key={team.id} style={[styles.card, { backgroundColor: c.input, borderColor: c.bordeInput, flexDirection: "row", alignItems: "center" }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.cardTitle, { color: c.texto }]}>{`${catLabel} · ${team.gender === "MALE" ? "Masc." : team.gender === "FEMALE" ? "Fem." : "Mixto"} · ${team.suffix}`}</Text>
+              <Text style={{ color: c.subtexto, fontSize: 12, marginTop: 4 }}>{`Temporada ${team.seasonLabel}`}</Text>
+            </View>
+            <TouchableOpacity onPress={() => handleDeleteTeam(team.id)}>
+              <Text style={{ color: "#DC2626", fontWeight: "bold", paddingHorizontal: 8 }}>{"Borrar"}</Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={() => handleDeleteTeam(t.id)}>
-            <Text style={{ color: "#DC2626", fontWeight: "bold", paddingHorizontal: 8 }}>{"Borrar"}</Text>
-          </TouchableOpacity>
-        </View>
-      ))}
+        );
+      })}
 
       <Modal visible={createTeamModal} transparent animationType="slide">
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
@@ -103,13 +112,13 @@ export default function TabEquipos() {
               <Text style={[styles.modalTitle, { color: c.texto }]}>{"Nuevo Equipo"}</Text>
 
               <Text style={[styles.inputLabel, { color: c.texto }]}>{"Categoría"}</Text>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 18 }}>
                 {CATEGORY_OPTIONS.map((cat) => (
                   <TouchableOpacity key={cat.value} onPress={() => setTeamForm((f) => ({ ...f, category: cat.value }))} style={[styles.chip, teamForm.category === cat.value ? { backgroundColor: c.boton } : { backgroundColor: c.input, borderWidth: 1, borderColor: c.bordeInput }]}>
-                    <Text style={{ color: teamForm.category === cat.value ? "#fff" : c.subtexto, fontSize: 13, fontWeight: "600" }}>{cat.label}</Text>
+                    <Text style={{ color: teamForm.category === cat.value ? "#fff" : c.subtexto, fontSize: 13, fontWeight: "600" }}>{t(cat.labelKey)}</Text>
                   </TouchableOpacity>
                 ))}
-              </View>
+              </ScrollView>
 
               <Text style={[styles.inputLabel, { color: c.texto }]}>{"Género"}</Text>
               <View style={{ flexDirection: "row", gap: 8, marginBottom: 18 }}>

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import ScreenContainer from "../../../components/ScreenContainer";
 import { useTheme } from "../../../lib/useTheme";
@@ -13,7 +13,15 @@ import { s } from "./styles";
 
 function MatchContent() {
   const c = useTheme();
-  const { loading, step, isLive, liveTab, setLiveTab, matchEvents, setStep } = useLiveMatch();
+  const { loading, step, isLive, liveTab, setLiveTab, matchEvents, setStep, resetMatchState } = useLiveMatch();
+
+  // Limpia todo el estado del partido al salir: evita que los jugadores de un
+  // partido aparezcan en el siguiente si Expo Router reutiliza la instancia.
+  useEffect(() => {
+    return () => {
+      resetMatchState();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <View style={[s.container, { backgroundColor: c.fondo }]}>

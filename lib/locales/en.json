@@ -1,6 +1,8 @@
 {
   "common": {
-    "error": "Error"
+    "error": "Error",
+    "optional": "(optional)",
+    "serverError": "Server connection error."
   },
   "register": {
     "title": "Create account",
@@ -33,7 +35,9 @@
     "successMessage": "Account created successfully",
     "phone": "Phone",
     "phonePlaceholder": "600 000 000",
-    "errorPhone": "Phone is required"
+    "errorPhone": "Phone is required",
+    "errorDoc": "Document number is required.",
+    "errorCreate": "Could not create the account."
   },
 "login": {
   "title": "Welcome back",
@@ -45,7 +49,13 @@
   "button": "Sign in",
   "forgotPassword": "Forgot your password?",
   "noAccount": "Don't have an account?",
-  "registerLink": "Sign up"
+  "registerLink": "Sign up",
+  "errorEmail": "Please enter a valid email format (e.g. email@domain.com)",
+  "errorPassword": "Password is required.",
+  "errorCredentials": "Incorrect credentials. Please check your email and password.",
+  "errorGoogle": "Error connecting to Google. Please try again.",
+  "continueWithGoogle": "Continue with Google",
+  "or": "or"
 },
 "forgotPassword": {
   "title": "Reset password",
@@ -55,7 +65,13 @@
   "button": "Send link",
   "backToLogin": "Back to sign in",
   "successTitle": "Email sent!",
-  "successMessage": "Check your inbox and follow the instructions"
+  "successMessage": "Check your inbox and follow the instructions",
+  "description": "Enter your email address and we'll send you a link to reset your password.",
+  "emailLabel": "Email",
+  "sendButton": "Send link",
+  "successDescription": "Check your inbox or spam folder to reset your password.",
+  "invalidEmail": "Please enter a valid email (e.g. email@domain.com).",
+  "sendError": "Could not send the link."
 },
 "selector": {
   "title": "Your clubs",
@@ -68,7 +84,15 @@
   "createClub": "Create my club",
   "createClubSub": "I am the club president",
   "joinClub": "Join a club",
-  "joinClubSub": "I have an invitation code"
+  "joinClubSub": "I have an invitation code",
+  "logout": "Sign out",
+  "pending": "Pending approval",
+  "rol_president": "President",
+  "rol_staff": "Coach",
+  "rol_coach": "Coach",
+  "rol_player": "Player",
+  "rol_relative": "Family member",
+  "rol_other": "Member"
 },
 "joinClub": {
   "title": "Join a club",
@@ -79,7 +103,27 @@
   "back": "Go back",
   "successTitle": "Request sent!",
   "successMessage": "The club president must accept you before you can access",
-  "successButton": "View status"
+  "successButton": "View status",
+  "joinTitle": "Join a club",
+  "invCode": "Invitation code",
+  "roleQuestion": "What role do you want to join as?",
+  "birthDate": "Date of birth",
+  "licenseNumber": "License number",
+  "selectDate": "Select date...",
+  "childHasAccount": "Does your child already have an account in the app?",
+  "playerNameHint": "Player name (so the president can identify them)",
+  "messageLabel": "Message for the president",
+  "submitButton": "Send request",
+  "sentTitle": "Request sent",
+  "sentMessage": "The club president will review your request shortly.",
+  "understood": "Got it",
+  "rol_player": "⚽ Player",
+  "rol_coach": "🎽 Coach",
+  "rol_relative": "👨‍👧 Family member",
+  "rol_other": "👤 Other",
+  "errorBirthDate": "Please enter the player's date of birth.",
+  "errorChildAccount": "Please indicate if your child has an account in the app.",
+  "errorChildName": "Please enter your child's first and last name."
 },
 "waiting": {
   "title": "Request sent",
@@ -87,7 +131,13 @@
   "message": "The president must approve your entry. We will notify you when you are accepted.",
   "refresh": "Refresh status",
   "back": "Go back",
-  "requestedClub": "Requested club"
+  "requestedClub": "Requested club",
+  "pendingTitle": "Pending request",
+  "clubLabel": "Club",
+  "roleLabel": "Requested role",
+  "messageLabel": "Your message",
+  "hint": "Pull down to refresh your request status.",
+  "goBack": "Go back"
 },
 "createClub": {
   "title": "Create club",
@@ -100,7 +150,11 @@
   "back": "Go back",
   "successTitle": "Club created!",
   "successMessage": "Your club has been created. Share the code with your players.",
-  "invitationCode": "Invitation code"
+  "invitationCode": "Invitation code",
+  "pageTitle": "New club",
+  "logoUrl": "Logo URL",
+  "shareCode": "Share this code with your players so they can join.",
+  "startManaging": "Start managing"
 },
 "home": {
   "greeting": "Good afternoon",
@@ -110,20 +164,83 @@
   "noAnnouncements": "No recent announcements",
   "noEvents": "No upcoming events",
   "activeSeason": "Active season",
-  "yourTeam": "Your team"
+  "yourTeam": "Your team",
+  "goodMorning": "Good morning",
+  "goodAfternoon": "Good afternoon",
+  "goodEvening": "Good evening",
+  "presidencia": "Management",
+  "welcomePresident": "Welcome, President!",
+  "welcome": "Welcome!",
+  "noTeamPresident": "The next step is to create your first team from the management menu.",
+  "noTeamPlayer": "You haven't been assigned to a team yet. Wait for the club to add you.",
+  "goToManagement": "Go to Management",
+  "seeBoard": "See board",
+  "noAnnouncementsYet": "No announcements to show yet.",
+  "noEventsScheduled": "No events scheduled."
 },
 "myClub": {
   "invitationCode": "Invitation code",
   "copy": "Copy",
   "staff": "Technical staff",
-  "squad": "Squad"
+  "squad": "Squad",
+  "teamSelector": "Team",
+  "gender_male": "Male",
+  "gender_female": "Female",
+  "gender_mixed": "Mixed",
+  "playersLabel": "players",
+  "sortRole": "Role",
+  "sortName": "A-Z",
+  "sortPosition": "Position",
+  "sortAge": "Age",
+  "noStaff": "No staff registered",
+  "noPlayers": "No players registered",
+  "pos_goalkeeper": "Goalkeeper",
+  "pos_defender": "Defender",
+  "pos_midfielder": "Midfielder",
+  "pos_forward": "Forward",
+  "pos_unknown": "Player",
+  "staffRole_head_coach": "Head Coach",
+  "staffRole_assistant": "Assistant",
+  "staffRole_fitness_coach": "Fitness Coach",
+  "staffRole_physiotherapist": "Physiotherapist",
+  "staffRole_delegate": "Delegate",
+  "staffRole_other": "Other",
+  "birthDate": "🎂 Date of birth",
+  "kitSize": "👕 Kit size",
+  "viewStats": "📊 View stats",
+  "season": "Season",
+  "noStats": "No stats available for this season.",
+  "emptyTitle": "Your club is empty",
+  "emptySubCreate": "Go to Management to create your first team and start adding players.",
+  "loadError": "Could not load the information",
+  "statGoals": "⚽ Goals",
+  "statAssists": "🅰️ Assists",
+  "statWins": "🏆 Matches won",
+  "statMatches": "🎮 Matches",
+  "statYellow": "🟨 Yellow cards",
+  "statRed": "🟥 Red cards"
 },
 "announcements": {
   "title": "Board",
   "unread": "unread",
   "filter_todos": "All",
   "filter_club": "Club",
-  "filter_equipo": "Team"
+  "filter_equipo": "Team",
+  "newAnnouncementModal": "📢 New Announcement",
+  "destination": "Destination",
+  "allClub": "🏛 Whole club",
+  "titleLabel": "Title *",
+  "titlePlaceholder": "Announcement title...",
+  "contentLabel": "Content *",
+  "contentPlaceholder": "Write the content...",
+  "pinLabel": "📌 Pin announcement",
+  "publishing": "Publishing...",
+  "publishButton": "Publish Announcement",
+  "emptySection": "No announcements in this section.",
+  "author": "Author",
+  "date": "Date",
+  "season": "Season",
+  "pinned": "📌 PINNED"
 },
 "schedule": {
   "title": "Schedule",
@@ -244,7 +361,7 @@
   "schedule": "Schedule",
   "board": "Board",
   "myClub": "My club",
-  "coachManagement": "Coach management",
+  "coachManagement": "Coach",
   "presidentManagement": "President management",
   "logout": "Log out",
   "fields": "Fields",
@@ -258,7 +375,34 @@
   "theme": "Theme",
   "themeAuto": "Auto",
   "themeLight": "Light",
-  "themeDark": "Dark"
+  "themeDark": "Dark",
+  "changePassword": "Change password",
+  "changePasswordSub": "Enter your new password",
+  "userManual": "User Manual",
+  "userManualSub": "Learn how to use the app",
+  "changeClub": "Switch club",
+  "changeClubSub": "Return to selector without logging out",
+  "currentPassword": "Current password",
+  "newPassword": "New password (min. 6)",
+  "confirmPasswordPlaceholder": "Confirm password",
+  "cancel": "Cancel",
+  "save": "Save",
+  "pwErrorRequired": "Please enter your current password",
+  "pwErrorMin": "Minimum 6 characters",
+  "pwErrorSame": "New password cannot be the same as the current one",
+  "pwErrorMismatch": "Passwords do not match",
+  "pwSuccess": "Password updated successfully",
+  "pwError": "Error changing password",
+  "unknownUser": "User"
+},
+"categories": {
+  "prebenjamin": "Prebenjamín (U8)",
+  "benjamin": "Benjamín (U10)",
+  "alevin": "Alevín (U12)",
+  "infantil": "Infantil (U14)",
+  "cadete": "Cadete (U16)",
+  "juvenil": "Juvenil (U18)",
+  "senior": "Senior"
 },
 "fields": {
   "title": "Fields",
@@ -275,6 +419,30 @@
   "noFields": "No fields registered",
   "deactivate": "Deactivate",
   "activate": "Activate",
-  "active": "Active"
+  "active": "Active",
+  "howToGet": "📍 How to get there",
+  "import": "📥 Import",
+  "activeSection": "Active",
+  "inactiveSection": "Inactive",
+  "emptyNotice": "The club has not registered any training fields yet",
+  "addFieldTitle": "📍 Add field",
+  "photoUrlLabel": "Field photo"
+},
+"gallery": {
+  "emptyTitle": "No photos yet",
+  "emptyPresidentHint": "Tap the + button to add the first photo",
+  "emptyPlayerHint": "The president hasn't uploaded any photos yet",
+  "editTitlePlaceholder": "Title",
+  "editDescPlaceholder": "Description",
+  "newPhoto": "New photo",
+  "photosSelected": "{{count}} photos selected",
+  "batchNote": "Title and description will apply to all photos",
+  "titlePlaceholder": "Title (optional)",
+  "descPlaceholder": "Description (optional)",
+  "teamQuestion": "Which team are these photos for?",
+  "noActiveTeams": "No active teams",
+  "cancel": "Cancel",
+  "save": "Save",
+  "permissionDenied": "Gallery permissions are required"
 }
 }

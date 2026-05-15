@@ -13,18 +13,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useTranslation } from "react-i18next";
 import ScreenContainer from "../../components/ScreenContainer";
 import { apiFetch } from "../../lib/api";
 import { useAuthStore } from "../../lib/store";
 import { usePermissions } from "../../lib/usePermissions";
 import { useTheme } from "../../lib/useTheme";
-
-const POSICION_LABEL: Record<string, string> = {
-  GOALKEEPER: "Portero",
-  DEFENDER: "Defensa",
-  MIDFIELDER: "Centrocampista",
-  FORWARD: "Delantero",
-};
 
 const POSICION_COLOR: Record<string, string> = {
   GOALKEEPER: "#f59e0b",
@@ -49,14 +43,6 @@ const STAFF_ROL_ORDEN: Record<string, number> = {
   OTHER:           6,
 };
 
-const STAFF_ROL_LABEL: Record<string, string> = {
-  HEAD_COACH:      "Entrenador Principal",
-  ASSISTANT:       "Asistente",
-  FITNESS_COACH:   "Preparador Físico",
-  PHYSIOTHERAPIST: "Fisioterapeuta",
-  DELEGATE:        "Delegado",
-  OTHER:           "Otro",
-};
 
 function parseBirthDate(s: string | null | undefined): number {
   if (!s) return NaN;
@@ -108,6 +94,7 @@ function Avatar({
 
 export default function MiClub() {
   const c = useTheme();
+  const { t } = useTranslation();
 
   const activeTeamId = useAuthStore((s: any) => s.activeTeamId);
   const clubId = useAuthStore((s: any) => s.activeClubId);
@@ -253,9 +240,9 @@ const sortedStaff = useMemo(() => {
     return (
       <View style={[styles.emptyWrap, { backgroundColor: c.fondo }]}>
         <Text style={{ fontSize: 40 }}>🏟️</Text>
-        <Text style={[styles.emptyTitle, { color: c.texto }]}>Tu club está vacío</Text>
+        <Text style={[styles.emptyTitle, { color: c.texto }]}>{t('myClub.emptyTitle')}</Text>
         <Text style={[styles.emptySub, { color: c.subtexto }]}>
-          Ve a Gestión para crear tu primer equipo y empezar a añadir jugadores.
+          {t('myClub.emptySubCreate')}
         </Text>
       </View>
     );
@@ -265,7 +252,7 @@ const sortedStaff = useMemo(() => {
     return (
       <View style={[styles.emptyWrap, { backgroundColor: c.fondo }]}>
         <Text style={[styles.emptySub, { color: c.subtexto }]}>
-          No se pudo cargar la información
+          {t('myClub.loadError')}
         </Text>
       </View>
     );
@@ -279,12 +266,12 @@ const sortedStaff = useMemo(() => {
       id: "chip-genero",
       label:
         data.genero === "MALE"
-          ? "👦 Masculino"
+          ? `👦 ${t('myClub.gender_male')}`
           : data.genero === "FEMALE"
-          ? "👧 Femenino"
-          : "👥 Mixto",
+          ? `👧 ${t('myClub.gender_female')}`
+          : `👥 ${t('myClub.gender_mixed')}`,
     },
-    { id: "chip-jugadores", label: `👥 ${data.plantilla?.length || 0} jugadores` },
+    { id: "chip-jugadores", label: `👥 ${data.plantilla?.length || 0} ${t('myClub.playersLabel')}` },
   ];
 
   return (
@@ -294,7 +281,7 @@ const sortedStaff = useMemo(() => {
         {/* ─── SELECTOR DE EQUIPO ──────────────────────────────────────── */}
         {teams.length > 0 && (
           <View style={[styles.selectorWrap, { borderBottomColor: c.bordeInput }]}>
-            <Text style={[styles.selectorLabel, { color: c.subtexto }]}>Equipo</Text>
+            <Text style={[styles.selectorLabel, { color: c.subtexto }]}>{t('myClub.teamSelector')}</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -358,7 +345,7 @@ const sortedStaff = useMemo(() => {
           {canSeeInvitationCode && (
             <View style={[styles.codigoCard, { backgroundColor: c.input, borderColor: c.bordeInput }]}>
               <View>
-                <Text style={[styles.codigoLabel, { color: c.subtexto }]}>CÓDIGO DE INVITACIÓN</Text>
+                <Text style={[styles.codigoLabel, { color: c.subtexto }]}>{t('myClub.invitationCode').toUpperCase()}</Text>
                 <Text style={[styles.codigoValue, { color: c.boton }]}>
                   {data.codigoInvitacion || "---"}
                 </Text>
@@ -367,7 +354,7 @@ const sortedStaff = useMemo(() => {
                 onPress={() => copyCode(data.codigoInvitacion)}
                 style={[styles.copiarButton, { backgroundColor: `${c.boton}18`, borderColor: `${c.boton}35` }]}
               >
-                <Text style={[styles.copiarText, { color: c.boton }]}>📋 Copiar</Text>
+                <Text style={[styles.copiarText, { color: c.boton }]}>📋 {t('myClub.copy')}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -389,13 +376,14 @@ const sortedStaff = useMemo(() => {
           {/* ─── STAFF ─────────────────────────────────────────────────── */}
           <View style={styles.sectionHeaderRow}>
             <Text style={[styles.sectionTitle, { color: c.texto, marginBottom: 0 }]}>
-              🎽 Staff técnico
+              🎽 {t('myClub.staff')}
             </Text>
             <View style={styles.sortChipsRow}>
               {([
-                { value: "ROLE" as const, label: "Rol" },
-                { value: "NAME" as const, label: "A-Z" },
-              ]).map(({ value, label }) => {
+                { value: "ROLE" as const, labelKey: "myClub.sortRole" },
+                { value: "NAME" as const, labelKey: "myClub.sortName" },
+              ]).map(({ value, labelKey }) => {
+                const label = t(labelKey);
                 const active = staffSort.key === value;
                 return (
                   // FIX: prefijo "staff-sort-" para no colisionar con los
@@ -443,7 +431,7 @@ const sortedStaff = useMemo(() => {
                     )}
                     {m.staffRole && (
                       <Text style={[styles.staffPhone, { color: c.subtexto }]}>
-                        {STAFF_ROL_LABEL[m.staffRole] || m.staffRole}
+                        {t('myClub.staffRole_' + m.staffRole.toLowerCase(), { defaultValue: m.staffRole })}
                       </Text>
                     )}
                   </View>
@@ -454,20 +442,21 @@ const sortedStaff = useMemo(() => {
               ))}
             </View>
           ) : (
-            <Text style={[styles.emptyText, { color: c.subtexto }]}>Sin staff registrado</Text>
+            <Text style={[styles.emptyText, { color: c.subtexto }]}>{t('myClub.noStaff')}</Text>
           )}
 
           {/* ─── PLANTILLA ───────────────────────────────────────────────── */}
           <View style={[styles.sectionHeaderRow, { marginTop: 24 }]}>
             <Text style={[styles.sectionTitle, { color: c.texto, marginBottom: 0 }]}>
-              ⚽ Plantilla
+              ⚽ {t('myClub.squad')}
             </Text>
             <View style={styles.sortChipsRow}>
               {([
-                { value: "POSITION"   as const, label: "Posición" },
-                { value: "NAME"       as const, label: "A-Z"      },
-                { value: "BIRTH_DATE" as const, label: "Edad"     },
-              ]).map(({ value, label }) => {
+                { value: "POSITION"   as const, labelKey: "myClub.sortPosition" },
+                { value: "NAME"       as const, labelKey: "myClub.sortName"     },
+                { value: "BIRTH_DATE" as const, labelKey: "myClub.sortAge"      },
+              ]).map(({ value, labelKey }) => {
+                const label = t(labelKey);
                 const active = playerSort.key === value;
                 return (
                   // FIX: prefijo "player-sort-"
@@ -502,7 +491,7 @@ const sortedStaff = useMemo(() => {
                     style={[styles.jugadorCard, { backgroundColor: c.input, borderColor: c.bordeInput }]}
                     onPress={canOpenMemberDetail ? () => openDetail(j, false) : undefined}
                     activeOpacity={canOpenMemberDetail ? 0.8 : 1}
-                    accessibilityLabel={`${j.firstName} ${j.lastName}, ${POSICION_LABEL[j.position] || "Jugador"}`}
+                    accessibilityLabel={`${j.firstName} ${j.lastName}, ${t('myClub.pos_' + (j.position?.toLowerCase() ?? ''), { defaultValue: t('myClub.pos_unknown') })}`}
                   >
                     <Avatar
                       photoUrl={playerPhotoUrl}
@@ -544,7 +533,7 @@ const sortedStaff = useMemo(() => {
                         </Text>
                       </View>
                       <Text style={[styles.posicionText, { color: c.subtexto }]}>
-                        {POSICION_LABEL[j.position] || "Jugador"}
+                        {t('myClub.pos_' + (j.position?.toLowerCase() ?? ''), { defaultValue: t('myClub.pos_unknown') })}
                       </Text>
                       {canOpenMemberDetail && (
                         <Text style={[styles.statsHint, { color: c.boton }]}>⋯</Text>
@@ -555,7 +544,7 @@ const sortedStaff = useMemo(() => {
               })}
             </View>
           ) : (
-            <Text style={[styles.emptyText, { color: c.subtexto }]}>Sin jugadores registrados</Text>
+            <Text style={[styles.emptyText, { color: c.subtexto }]}>{t('myClub.noPlayers')}</Text>
           )}
         </ScrollView>
 
@@ -607,7 +596,7 @@ const sortedStaff = useMemo(() => {
                     ]}
                   >
                     <Text style={[styles.detailRolText, { color: c.boton }]}>
-                      {STAFF_ROL_LABEL[detailPerson.staffRole] || detailPerson.staffRole}
+                      {t('myClub.staffRole_' + detailPerson.staffRole.toLowerCase(), { defaultValue: detailPerson.staffRole })}
                     </Text>
                   </View>
                 ) : null
@@ -627,7 +616,7 @@ const sortedStaff = useMemo(() => {
                       { color: POSICION_COLOR[detailPerson?.position] || c.boton },
                     ]}
                   >
-                    {POSICION_LABEL[detailPerson?.position] || "Jugador"}
+                    {t('myClub.pos_' + (detailPerson?.position?.toLowerCase() ?? ''), { defaultValue: t('myClub.pos_unknown') })}
                     {detailPerson?.jerseyNumber ? `  ·  #${detailPerson.jerseyNumber}` : ""}
                   </Text>
                 </View>
@@ -646,7 +635,7 @@ const sortedStaff = useMemo(() => {
                     )}
                     {detailPerson?.phone && (
                       <View style={styles.detailRow}>
-                        <Text style={[styles.detailRowLabel, { color: c.subtexto }]}>📞 Teléfono</Text>
+                        <Text style={[styles.detailRowLabel, { color: c.subtexto }]}>📞 {t('profile.phone')}</Text>
                         <Text style={[styles.detailRowValue, { color: c.texto }]}>{detailPerson.phone}</Text>
                       </View>
                     )}
@@ -663,7 +652,7 @@ const sortedStaff = useMemo(() => {
                   <>
                     {detailPerson?.birthDate && (
                       <View style={styles.detailRow}>
-                        <Text style={[styles.detailRowLabel, { color: c.subtexto }]}>🎂 Nacimiento</Text>
+                        <Text style={[styles.detailRowLabel, { color: c.subtexto }]}>{t('myClub.birthDate')}</Text>
                         <Text style={[styles.detailRowValue, { color: c.texto }]}>{detailPerson.birthDate}</Text>
                       </View>
                     )}
@@ -675,13 +664,13 @@ const sortedStaff = useMemo(() => {
                     )}
                     {detailPerson?.phone && (
                       <View style={styles.detailRow}>
-                        <Text style={[styles.detailRowLabel, { color: c.subtexto }]}>📞 Teléfono</Text>
+                        <Text style={[styles.detailRowLabel, { color: c.subtexto }]}>📞 {t('profile.phone')}</Text>
                         <Text style={[styles.detailRowValue, { color: c.texto }]}>{detailPerson.phone}</Text>
                       </View>
                     )}
                     {detailPerson?.kitSize && (
                       <View style={styles.detailRow}>
-                        <Text style={[styles.detailRowLabel, { color: c.subtexto }]}>👕 Talla</Text>
+                        <Text style={[styles.detailRowLabel, { color: c.subtexto }]}>{t('myClub.kitSize')}</Text>
                         <Text style={[styles.detailRowValue, { color: c.texto }]}>{detailPerson.kitSize}</Text>
                       </View>
                     )}
@@ -703,7 +692,7 @@ const sortedStaff = useMemo(() => {
                   onPress={() => { closeDetail(); openStats(detailPerson); }}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.detailStatsBtnText}>📊 Ver estadísticas</Text>
+                  <Text style={styles.detailStatsBtnText}>{t('myClub.viewStats')}</Text>
                 </TouchableOpacity>
               )}
             </Pressable>
@@ -728,7 +717,7 @@ const sortedStaff = useMemo(() => {
                     {selectedPlayer?.firstName} {selectedPlayer?.lastName}
                   </Text>
                   <Text style={[styles.statsPos, { color: c.subtexto }]}>
-                    {POSICION_LABEL[selectedPlayer?.position] || "Jugador"} ·
+                    {t('myClub.pos_' + (selectedPlayer?.position?.toLowerCase() ?? ''), { defaultValue: t('myClub.pos_unknown') })} ·
                     #{selectedPlayer?.jerseyNumber || "?"}
                   </Text>
                 </View>
@@ -742,16 +731,16 @@ const sortedStaff = useMemo(() => {
               ) : playerStats ? (
                 <>
                   <Text style={[styles.statsTemporada, { color: c.subtexto }]}>
-                    Temporada {seasonLabel}
+                    {t('myClub.season')} {seasonLabel}
                   </Text>
                   <View style={styles.statsGrid}>
                     {[
-                      { id: "stat-goles",      label: "⚽ Goles",         value: playerStats.totalGoles },
-                      { id: "stat-asist",      label: "🅰️ Asistencias",   value: playerStats.totalAsistencias },
-                      { id: "stat-ganados",    label: "🏆 Partidos gan.",  value: playerStats.partidosGanados },
-                      { id: "stat-partidos",   label: "🎮 Partidos",       value: playerStats.totalPartidos },
-                      { id: "stat-amarillas",  label: "🟨 T. Amarillas",   value: playerStats.totalTarjetasAmarillas },
-                      { id: "stat-rojas",      label: "🟥 T. Rojas",       value: playerStats.totalTarjetasRojas },
+                      { id: "stat-goles",      label: t('myClub.statGoals'),    value: playerStats.totalGoles },
+                      { id: "stat-asist",      label: t('myClub.statAssists'),  value: playerStats.totalAsistencias },
+                      { id: "stat-ganados",    label: t('myClub.statWins'),     value: playerStats.partidosGanados },
+                      { id: "stat-partidos",   label: t('myClub.statMatches'),  value: playerStats.totalPartidos },
+                      { id: "stat-amarillas",  label: t('myClub.statYellow'),   value: playerStats.totalTarjetasAmarillas },
+                      { id: "stat-rojas",      label: t('myClub.statRed'),      value: playerStats.totalTarjetasRojas },
                     ].map((stat) => (
                       // FIX: prefijo "stat-*" en lugar del label como key
                       <View key={stat.id} style={[styles.statBox, { backgroundColor: c.input }]}>
@@ -763,7 +752,7 @@ const sortedStaff = useMemo(() => {
                 </>
               ) : (
                 <Text style={[styles.emptySub, { color: c.subtexto, textAlign: "center", marginTop: 20 }]}>
-                  No hay estadísticas disponibles para esta temporada.
+                  {t('myClub.noStats')}
                 </Text>
               )}
             </Pressable>

@@ -89,10 +89,10 @@ const [pwModal, setPwModal] = useState(false);
 
   const handleChangePassword = async () => {
     setPwError('');
-    if (!oldPw) { setPwError('Introduce tu contraseña actual'); return; }
-    if (newPw.length < 6) { setPwError('Mínimo 6 caracteres'); return; }
-    if (newPw === oldPw) { setPwError('La nueva contraseña no puede ser igual a la anterior'); return; }
-    if (newPw !== confirmPw) { setPwError('Las contraseñas no coinciden'); return; }
+    if (!oldPw) { setPwError(t('profile.pwErrorRequired')); return; }
+    if (newPw.length < 6) { setPwError(t('profile.pwErrorMin')); return; }
+    if (newPw === oldPw) { setPwError(t('profile.pwErrorSame')); return; }
+    if (newPw !== confirmPw) { setPwError(t('profile.pwErrorMismatch')); return; }
     setPwLoading(true);
       try {
         const res = await fetch(`${API_URL}/api/profile/password`, {
@@ -105,9 +105,9 @@ const [pwModal, setPwModal] = useState(false);
         setOldPw('');
         setNewPw('');
         setConfirmPw('');
-        alert('Contraseña actualizada correctamente');
+        alert(t('profile.pwSuccess'));
       } catch (e: any) {
-        setPwError(e.message || 'Error al cambiar la contraseña');
+        setPwError(e.message || t('profile.pwError'));
       } finally {
         setPwLoading(false);
       }
@@ -133,7 +133,7 @@ const [pwModal, setPwModal] = useState(false);
     }
   }
 
-  const fullName = [profile?.firstName, profile?.lastName].filter(Boolean).join(" ") || "Usuario"
+  const fullName = [profile?.firstName, profile?.lastName].filter(Boolean).join(" ") || t('profile.unknownUser')
   const initials = [profile?.firstName?.charAt(0), profile?.lastName?.charAt(0)]
     .filter(Boolean)
     .join("")
@@ -239,8 +239,8 @@ const [pwModal, setPwModal] = useState(false);
         >
           <Text style={{ fontSize: 20 }}>🔑</Text>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.accionTitle, { color: c.texto }]}>Cambiar contraseña</Text>
-            <Text style={[styles.accionSub, { color: c.subtexto }]}>Introduce tu nueva contraseña</Text>
+            <Text style={[styles.accionTitle, { color: c.texto }]}>{t('profile.changePassword')}</Text>
+            <Text style={[styles.accionSub, { color: c.subtexto }]}>{t('profile.changePasswordSub')}</Text>
           </View>
           <Text style={{ color: c.subtexto, fontSize: 20 }}>›</Text>
         </TouchableOpacity>
@@ -252,8 +252,8 @@ const [pwModal, setPwModal] = useState(false);
         >
           <Text style={{ fontSize: 20 }}>📖</Text>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.accionTitle, { color: c.texto }]}>Manual de Usuario</Text>
-            <Text style={[styles.accionSub, { color: c.subtexto }]}>Aprende a usar la aplicación</Text>
+            <Text style={[styles.accionTitle, { color: c.texto }]}>{t('profile.userManual')}</Text>
+            <Text style={[styles.accionSub, { color: c.subtexto }]}>{t('profile.userManualSub')}</Text>
           </View>
           <Text style={{ color: c.subtexto, fontSize: 20 }}>›</Text>
         </TouchableOpacity>
@@ -264,8 +264,8 @@ const [pwModal, setPwModal] = useState(false);
         >
           <Text style={{ fontSize: 20 }}>🔄</Text>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.accionTitle, { color: c.boton }]}>Cambiar de club</Text>
-            <Text style={[styles.accionSub, { color: c.subtexto }]}>Vuelve al selector sin cerrar sesión</Text>
+            <Text style={[styles.accionTitle, { color: c.boton }]}>{t('profile.changeClub')}</Text>
+            <Text style={[styles.accionSub, { color: c.subtexto }]}>{t('profile.changeClubSub')}</Text>
           </View>
           <Text style={{ color: c.boton, fontSize: 20 }}>›</Text>
         </TouchableOpacity>
@@ -276,11 +276,11 @@ const [pwModal, setPwModal] = useState(false);
       <Modal visible={pwModal} transparent animationType="slide">
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
           <View style={{ backgroundColor: c.fondo, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40, gap: 12 }}>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: c.texto }}>Cambiar contraseña</Text>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: c.texto }}>{t('profile.changePassword')}</Text>
             
             <TextInput
               style={{ backgroundColor: c.input, borderWidth: 1, borderColor: c.bordeInput, borderRadius: 12, padding: 14, color: c.texto }}
-              placeholder="Contraseña actual"
+              placeholder={t('profile.currentPassword')}
               placeholderTextColor={c.subtexto}
               secureTextEntry
               value={oldPw}
@@ -289,7 +289,7 @@ const [pwModal, setPwModal] = useState(false);
 
             <TextInput
               style={{ backgroundColor: c.input, borderWidth: 1, borderColor: c.bordeInput, borderRadius: 12, padding: 14, color: c.texto }}
-              placeholder="Nueva contraseña (min. 6)"
+              placeholder={t('profile.newPassword')}
               placeholderTextColor={c.subtexto}
               secureTextEntry
               value={newPw}
@@ -298,7 +298,7 @@ const [pwModal, setPwModal] = useState(false);
             
             <TextInput
               style={{ backgroundColor: c.input, borderWidth: 1, borderColor: c.bordeInput, borderRadius: 12, padding: 14, color: c.texto }}
-              placeholder="Confirmar contraseña" 
+              placeholder={t('profile.confirmPasswordPlaceholder')}
               placeholderTextColor={c.subtexto}
               secureTextEntry 
               value={confirmPw} 
@@ -312,7 +312,7 @@ const [pwModal, setPwModal] = useState(false);
                 style={{ flex: 1, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: c.bordeInput, alignItems: 'center' }} 
                 onPress={() => { setPwModal(false); setOldPw(''); setNewPw(''); setConfirmPw(''); setPwError(''); }}
               >
-                <Text style={{ color: c.texto, fontWeight: '600' }}>Cancelar</Text>
+                <Text style={{ color: c.texto, fontWeight: '600' }}>{t('profile.cancel')}</Text>
               </TouchableOpacity>
               
               <TouchableOpacity 
@@ -320,7 +320,7 @@ const [pwModal, setPwModal] = useState(false);
                 onPress={handleChangePassword} 
                 disabled={pwLoading}
               >
-                {pwLoading ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>Guardar</Text>}
+                {pwLoading ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>{t('profile.save')}</Text>}
               </TouchableOpacity>
             </View>
           </View>

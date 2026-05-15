@@ -26,6 +26,9 @@ export interface CalendarEvent {
   teamName: string;
   location?: string;
   fieldId?: number | null;
+  goalsFor?: number | null;
+  goalsAgainst?: number | null;
+  matchStatus?: string | null;
 }
 
 export interface Team {

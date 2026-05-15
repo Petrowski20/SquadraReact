@@ -78,7 +78,7 @@ export default function Register() {
       await signInWithGoogle();
       // onAuthStateChange en el layout se encarga de la navegación
     } catch {
-      setErrorMessage("Error al conectar con Google. Inténtalo de nuevo.");
+      setErrorMessage(t("login.errorGoogle"));
     } finally {
       setIsGoogleLoading(false);
     }
@@ -87,7 +87,7 @@ export default function Register() {
   const pickPhoto = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      setErrorMessage("Permiso denegado para acceder a las fotos.");
+      setErrorMessage(t("register.permissionDeniedMessage"));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -183,7 +183,7 @@ export default function Register() {
         // Leemos el mensaje exacto que nos manda Java para mostrarlo
         const errorText = await response.text();
         setIsLoading(false);
-        setErrorMessage(errorText || "No se pudo crear la cuenta.");
+        setErrorMessage(errorText || t("register.errorCreate"));
         return;
       }
 
@@ -191,7 +191,7 @@ export default function Register() {
       setAuth(data.token, { ...data });
       router.replace("/(selector)");
     } catch (error) {
-      setErrorMessage("Error de conexión con el servidor.");
+      setErrorMessage(t("common.serverError"));
     } finally {
       setIsLoading(false);
     }
@@ -265,7 +265,7 @@ export default function Register() {
               >
                 <Text style={styles.photoIcon}>📷</Text>
                 <Text style={[styles.photoText, { color: c.subtexto }]}>
-                  Añadir foto
+                  {t("register.addPhoto")}
                 </Text>
               </View>
             )}
@@ -527,7 +527,7 @@ export default function Register() {
 
           <View style={styles.separatorRow}>
             <View style={[styles.separatorLine, { backgroundColor: c.bordeInput }]} />
-            <Text style={[styles.separatorText, { color: c.subtexto }]}>o</Text>
+            <Text style={[styles.separatorText, { color: c.subtexto }]}>{t("login.or")}</Text>
             <View style={[styles.separatorLine, { backgroundColor: c.bordeInput }]} />
           </View>
 
@@ -541,7 +541,7 @@ export default function Register() {
               ? <ActivityIndicator color={c.subtexto} />
               : <View style={styles.googleButtonContent}>
                   <GoogleIcon />
-                  <Text style={[styles.googleButtonText, { color: c.texto }]}>Continuar con Google</Text>
+                  <Text style={[styles.googleButtonText, { color: c.texto }]}>{t("login.continueWithGoogle")}</Text>
                 </View>
             }
           </TouchableOpacity>
@@ -550,8 +550,8 @@ export default function Register() {
             style={styles.linkContainer}
             onPress={() => router.replace("/login")}
           >
-            <Text style={{ color: c.subtexto }}>¿Ya tienes cuenta? </Text>
-            <Text style={[styles.link, { color: c.boton }]}>Inicia sesión</Text>
+            <Text style={{ color: c.subtexto }}>{t("register.alreadyAccount")} </Text>
+            <Text style={[styles.link, { color: c.boton }]}>{t("register.loginLink")}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

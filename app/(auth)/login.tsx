@@ -76,7 +76,7 @@ export default function Login() {
       if (!response.ok) {
         setIsLoading(false);
         const errorText = await response.text();
-        setErrorMessage(errorText || "Las credenciales son incorrectas. Revisa tu email y contraseña.");
+        setErrorMessage(errorText || t("login.errorCredentials"));
         return;
       }
 
@@ -92,7 +92,7 @@ export default function Login() {
         photoUrl: data.photoUrl,
       });
     } catch (err) {
-      setErrorMessage("No hemos podido conectar con el servidor. Revisa tu conexión.");
+      setErrorMessage(t("common.serverError"));
     } finally {
       setIsLoading(false);
     }
@@ -105,7 +105,7 @@ export default function Login() {
       await signInWithGoogle();
       // onAuthStateChange en el layout se encarga de la navegación
     } catch {
-      setErrorMessage("Error al conectar con Google. Inténtalo de nuevo.");
+      setErrorMessage(t("login.errorGoogle"));
     } finally {
       setIsGoogleLoading(false);
     }
@@ -209,7 +209,7 @@ export default function Login() {
 
           <View style={styles.separatorRow}>
             <View style={[styles.separatorLine, { backgroundColor: c.bordeInput }]} />
-            <Text style={[styles.separatorText, { color: c.subtexto }]}>o</Text>
+            <Text style={[styles.separatorText, { color: c.subtexto }]}>{t("login.or")}</Text>
             <View style={[styles.separatorLine, { backgroundColor: c.bordeInput }]} />
           </View>
 
@@ -223,7 +223,7 @@ export default function Login() {
               ? <ActivityIndicator color={c.subtexto} />
               : <View style={styles.googleButtonContent}>
                   <GoogleIcon />
-                  <Text style={[styles.googleButtonText, { color: c.texto }]}>Continuar con Google</Text>
+                  <Text style={[styles.googleButtonText, { color: c.texto }]}>{t("login.continueWithGoogle")}</Text>
                 </View>
             }
           </TouchableOpacity>

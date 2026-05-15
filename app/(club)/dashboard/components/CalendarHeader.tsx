@@ -46,11 +46,11 @@ export default function CalendarHeader({ nativeTopPad = true }: CalendarHeaderPr
           }}
         >
           <View>
-            <Text style={[styles.headerSub, { color: c.subtexto }]}>
-              Temporada {currentSeasonLabel}
-            </Text>
             <Text style={[styles.headerTitle, { color: c.texto }]}>
               Calendario
+            </Text>
+            <Text style={[styles.headerSub, { color: c.subtexto }]}>
+              Temporada {currentSeasonLabel}
             </Text>
           </View>
           <View style={{ flexDirection: "row", gap: 8 }}>
@@ -160,7 +160,7 @@ export default function CalendarHeader({ nativeTopPad = true }: CalendarHeaderPr
 const styles = StyleSheet.create({
   headerRow: { paddingHorizontal: 16, paddingTop: 90, paddingBottom: 6 },
   headerTitle: { fontSize: 22, fontWeight: "bold" },
-  headerSub: { fontSize: 12, fontWeight: "500", marginBottom: 2 },
+  headerSub: { fontSize: 12, fontWeight: "500", marginTop: 2 },
   exportBtn: {
     flexDirection: "row",
     alignItems: "center",

@@ -15,19 +15,11 @@ import {
 import LogoSimbolo from "../../components/LogoSimbolo";
 import ScreenContainer from "../../components/ScreenContainer";
 import { apiFetch } from "../../lib/api";
+import { useTranslation } from 'react-i18next';
 import i18n from "../../lib/i18n";
 import { useAuthStore } from "../../lib/store";
 import { useTheme } from "../../lib/useTheme";
 
-// 🟢 AQUÍ ESTÁ EL ARREGLO: Añadimos STAFF al diccionario
-const ROL_LABEL: Record<string, string> = {
-  PRESIDENT: "Presidente",
-  STAFF: "Entrenador", // 👈 ¡Fichaje estrella!
-  COACH: "Entrenador", // Lo mantenemos por retrocompatibilidad
-  PLAYER: "Jugador",
-  RELATIVE: "Familiar",
-  OTHER: "Miembro",
-};
 
 export default function SelectorIndex() {
   const c = useTheme();
@@ -38,6 +30,7 @@ export default function SelectorIndex() {
   const language = useAuthStore((s: any) => s.language);
   const setThemeMode = useAuthStore((s: any) => s.setThemeMode);
   const setLanguage = useAuthStore((s: any) => s.setLanguage);
+  const { t } = useTranslation();
   const handleLogout = () => {
     logout();
     router.replace("/login");
@@ -223,7 +216,7 @@ export default function SelectorIndex() {
               <Text
                 style={{ color: "#ef4444", fontWeight: "600", fontSize: 13 }}
               >
-                🚪 Salir
+                🚪 {t('selector.logout')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -240,7 +233,7 @@ export default function SelectorIndex() {
           </Text>
         </View>
 
-        <Text style={[styles.title, { color: c.texto }]}>Tus clubes</Text>
+        <Text style={[styles.title, { color: c.texto }]}>{t('selector.title')}</Text>
 
         {isLoading && !isRefreshing ? (
           <ActivityIndicator
@@ -279,7 +272,7 @@ export default function SelectorIndex() {
 
                   {/* 🟢 Aquí es donde se aplica la traducción mágica */}
                   <Text style={[styles.clubRol, { color: c.subtexto }]}>
-                    {ROL_LABEL[club.role] || "Miembro"}
+                    {t('selector.rol_' + club.role.toLowerCase())}
                   </Text>
                 </View>
                 <Text style={[styles.clubArrow, { color: c.boton }]}>›</Text>
@@ -303,7 +296,7 @@ export default function SelectorIndex() {
                     {req.clubName}
                   </Text>
                   <Text style={[styles.clubRol, { color: "#C9A84C" }]}>
-                    Pendiente de aprobación
+                    {t('selector.pending')}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -314,7 +307,7 @@ export default function SelectorIndex() {
                 style={[styles.actionCard, { backgroundColor: c.boton }]}
                 onPress={() => router.push("/(selector)/crear-club")}
               >
-                <Text style={styles.actionTitle}>🏆 Crear mi club</Text>
+                <Text style={styles.actionTitle}>🏆 {t('selector.createClub')}</Text>
                 <Text style={styles.actionArrow}>›</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -329,7 +322,7 @@ export default function SelectorIndex() {
                 onPress={() => router.push("/(selector)/unirse")}
               >
                 <Text style={[styles.actionTitle, { color: c.texto }]}>
-                  🔗 Unirme a un club
+                  🔗 {t('selector.joinClub')}
                 </Text>
                 <Text style={[styles.actionArrow, { color: c.subtexto }]}>
                   ›

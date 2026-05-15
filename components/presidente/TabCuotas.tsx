@@ -271,7 +271,7 @@ export default function TabCuotas() {
               </TouchableOpacity>
             </View>
             <View style={[styles.calendarWrapper, { borderColor: c.bordeInput }]}>
-              <View style={styles.weekRow}>{DIAS_SEMANA.map((d) => <Text key={d} style={{ flex: 1, textAlign: "center", fontSize: 13, fontWeight: "600", color: c.subtexto }}>{d}</Text>)}</View>
+              <View style={styles.weekRow}>{DIAS_SEMANA.map((d) => <Text key={d} style={{ width: 40, textAlign: "center", fontSize: 13, fontWeight: "600", color: c.subtexto }}>{d}</Text>)}</View>
               {renderCalendarGrid()}
             </View>
             <TouchableOpacity style={[styles.btnMain, { backgroundColor: c.input, borderWidth: 1, borderColor: c.bordeInput, marginTop: 15 }]} onPress={() => setShowDatePicker(false)}>
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
   emptyBox: { borderRadius: 16, borderWidth: 1, padding: 30, marginBottom: 12, alignItems: "center" },
   monthNav: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 15 },
   calendarWrapper: { borderRadius: 12, borderWidth: 1, padding: 10, paddingBottom: 15 },
-  weekRow: { flexDirection: "row", justifyContent: "space-around", marginBottom: 8 },
-  dayCell: { flex: 1, aspectRatio: 1, alignItems: "center", justifyContent: "center", margin: 2, borderRadius: 8 },
-  dayCellEmpty: { flex: 1, aspectRatio: 1, margin: 2 },
+  weekRow: { flexDirection: "row", justifyContent: "center", marginBottom: 4 },
+  dayCell: { width: 36, height: 36, alignItems: "center", justifyContent: "center", margin: 2, borderRadius: 8 },
+  dayCellEmpty: { width: 36, height: 36, margin: 2 },
 });

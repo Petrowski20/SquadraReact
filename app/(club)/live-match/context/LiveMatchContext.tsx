@@ -171,6 +171,7 @@ interface LiveMatchContextValue {
   handleSave: () => Promise<void>;
   handleClose: () => Promise<void>;
   handleResetMatch: () => void;
+  resetMatchState: () => void;
 }
 
 const LiveMatchContext = createContext<LiveMatchContextValue | null>(null);
@@ -250,10 +251,23 @@ export function LiveMatchProvider({ children }: { children: React.ReactNode }) {
       setCalledUpIds(calledUp);
       setStats(statsData);
 
-      // En modo LIVE: si ya hay titulares confirmados (partido retomado), ir directo
-      // al campo. Si no hay ninguno, forzar paso de titulares.
+      // En modo LIVE: si hay titulares, inferir formación desde assignedPosition e ir
+      // al campo. Si no hay ninguno, forzar paso de convocados.
       if (isLive) {
-        setStep(statsData.some((p) => p.wasStarter) ? "stats" : "callups");
+        const starters = statsData.filter((p) => p.wasStarter);
+        if (starters.length > 0) {
+          const porCount = starters.filter((p) => p.assignedPosition === "POR").length;
+          const defCount = starters.filter((p) => p.assignedPosition === "DEF").length;
+          const medCount = starters.filter((p) => p.assignedPosition === "MED").length;
+          const delCount = starters.filter((p) => p.assignedPosition === "DEL").length;
+          const inferred = FORMATIONS.find(
+            (f) => f.por === porCount && f.def === defCount && f.med === medCount && f.del === delCount,
+          );
+          if (inferred) setSelectedFormation(inferred.id);
+          setStep("stats");
+        } else {
+          setStep("callups");
+        }
       }
     } catch {
       Alert.alert("Error", "Error de red al cargar el partido.");
@@ -268,6 +282,14 @@ export function LiveMatchProvider({ children }: { children: React.ReactNode }) {
     setSeconds(0);
     setIsRunning(false);
     setStep(isLive ? "callups" : "stats");
+    setSelectedFormation(null);
+    setLiveTab("field");
+    setPitchPlayer(null);
+    setSubModalVisible(false);
+    setPlayerToSubOut(null);
+    setCloseModal(false);
+    setGoalsFor("");
+    setGoalsAgainst("");
     setStats([]);
     setCalledUpIds(new Set());
   }, [matchId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -485,6 +507,8 @@ export function LiveMatchProvider({ children }: { children: React.ReactNode }) {
         Alert.alert("Error", msg || `No se pudo cerrar el partido (HTTP ${res.status}).`);
         return;
       }
+      const responseBody = await res.text().catch(() => "");
+      console.log("[handleClose] Partido cerrado OK. Respuesta backend:", responseBody);
       setCloseModal(false);
       router.replace("/(club)/calendario");
     } catch (e: any) {
@@ -493,6 +517,24 @@ export function LiveMatchProvider({ children }: { children: React.ReactNode }) {
       setClosing(false);
     }
   };
+
+  // ── Full state reset (limpieza en desmontaje o cambio de partido) ────────
+  const resetMatchState = useCallback(() => {
+    setMatchEvents([]);
+    setSeconds(0);
+    setIsRunning(false);
+    setStep(isLive ? "callups" : "stats");
+    setSelectedFormation(null);
+    setLiveTab("field");
+    setPitchPlayer(null);
+    setSubModalVisible(false);
+    setPlayerToSubOut(null);
+    setCloseModal(false);
+    setGoalsFor("");
+    setGoalsAgainst("");
+    setStats([]);
+    setCalledUpIds(new Set());
+  }, [isLive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Reset match ───────────────────────────────────────────────────────────
   const applyReset = () => {
@@ -575,6 +617,7 @@ export function LiveMatchProvider({ children }: { children: React.ReactNode }) {
         handleSave,
         handleClose,
         handleResetMatch,
+        resetMatchState,
       }}
     >
       {children}

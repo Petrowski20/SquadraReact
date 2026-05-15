@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { router } from 'expo-router'
 import { useState } from 'react'
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
@@ -9,6 +10,7 @@ import ScreenContainer from '../../components/ScreenContainer'
 
 export default function CrearClub() {
   const c = useTheme()
+  const { t } = useTranslation()
   const { setActiveClub, setSeason } = useAuthStore()
 
   const [nombre, setNombre] = useState('')
@@ -44,7 +46,7 @@ export default function CrearClub() {
         }
       }
     } catch {
-      setErrorMessage('Problema de conexión con el servidor.')
+      setErrorMessage(t('common.serverError'))
     } finally {
       setIsSubmitting(false)
     }
@@ -70,19 +72,19 @@ export default function CrearClub() {
       <ScreenContainer>
       <View style={[styles.container, { backgroundColor: c.fondo, justifyContent: 'center' }]}>
         <Text style={{ fontSize: 60, marginBottom: 20 }}>🏆</Text>
-        <Text style={[styles.title, { color: c.texto }]}>¡Club creado!</Text>
+        <Text style={[styles.title, { color: c.texto }]}>{t('createClub.successTitle')}</Text>
         <Text style={[styles.subtitle, { color: c.subtexto }]}>
-          Comparte este código con tus jugadores para que puedan unirse.
+          {t('createClub.shareCode')}
         </Text>
         <View style={[styles.codeCard, { backgroundColor: c.input, borderColor: c.bordeInput }]}>
-          <Text style={[styles.codeLabel, { color: c.subtexto }]}>CÓDIGO DE INVITACIÓN</Text>
+          <Text style={[styles.codeLabel, { color: c.subtexto }]}>{t('createClub.invitationCode').toUpperCase()}</Text>
           <Text style={[styles.codeText, { color: c.boton }]}>{clubData?.invitationCode}</Text>
         </View>
         <TouchableOpacity
           style={[styles.button, { backgroundColor: c.boton, width: '100%' }]}
           onPress={handleEntrar}
         >
-          <Text style={styles.buttonText}>Empezar a gestionar</Text>
+          <Text style={styles.buttonText}>{t('createClub.startManaging')}</Text>
         </TouchableOpacity>
       </View>
       </ScreenContainer>
@@ -102,12 +104,12 @@ export default function CrearClub() {
           showsVerticalScrollIndicator={false}
         >
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Text style={[styles.backText, { color: c.boton }]}>← Volver</Text>
+            <Text style={[styles.backText, { color: c.boton }]}>← {t('createClub.back')}</Text>
           </TouchableOpacity>
 
-          <Text style={[styles.title, { color: c.texto }]}>Nuevo club</Text>
+          <Text style={[styles.title, { color: c.texto }]}>{t('createClub.pageTitle')}</Text>
 
-          <Text style={[styles.label, { color: c.subtexto }]}>Nombre del club *</Text>
+          <Text style={[styles.label, { color: c.subtexto }]}>{t('createClub.name')} *</Text>
           <TextInput
             style={[styles.input, { backgroundColor: c.input, color: c.texto, borderColor: c.bordeInput }]}
             placeholder="Ej: UD Atlético Parque"
@@ -119,8 +121,8 @@ export default function CrearClub() {
           />
 
           <Text style={[styles.label, { color: c.subtexto }]}>
-            URL del logo{' '}
-            <Text style={{ fontStyle: 'italic' }}>(opcional)</Text>
+            {t('createClub.logoUrl')}{' '}
+            <Text style={{ fontStyle: 'italic' }}>{t('common.optional')}</Text>
           </Text>
           <TextInput
             style={[styles.input, { backgroundColor: c.input, color: c.texto, borderColor: c.bordeInput }]}
@@ -148,7 +150,7 @@ export default function CrearClub() {
           >
             {isSubmitting
               ? <ActivityIndicator color="white" />
-              : <Text style={styles.buttonText}>Crear club</Text>
+              : <Text style={styles.buttonText}>{t('createClub.button')}</Text>
             }
           </TouchableOpacity>
         </ScrollView>

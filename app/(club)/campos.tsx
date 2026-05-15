@@ -17,6 +17,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import { useTranslation } from 'react-i18next'
 import { apiFetch } from '../../lib/api'
 import { useAuthStore } from '../../lib/store'
 import { useTheme } from '../../lib/useTheme'
@@ -35,6 +36,7 @@ function CampoCard({
   brokenImgs,
   setBrokenImgs,
   onMaps,
+  howToGetLabel,
   gestorActions,
 }: {
   campo: any
@@ -42,6 +44,7 @@ function CampoCard({
   brokenImgs: Set<any>
   setBrokenImgs: (fn: (prev: Set<any>) => Set<any>) => void
   onMaps: () => void
+  howToGetLabel: string
   gestorActions?: React.ReactNode
 }) {
   const hasImage = !brokenImgs.has(campo.id) && !!campo.photo_url
@@ -102,7 +105,7 @@ function CampoCard({
             onPress={onMaps}
             activeOpacity={0.85}
           >
-            <Text style={styles.btnComoLlegarText}>📍 Cómo llegar</Text>
+            <Text style={styles.btnComoLlegarText}>{howToGetLabel}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -114,6 +117,7 @@ function CampoCard({
 
 export default function Campos() {
   const c = useTheme()
+  const { t } = useTranslation()
 
   const activeTeamId = useAuthStore((s: any) => s.activeTeamId)
   const activeRole   = useAuthStore((s: any) => s.activeRole)
@@ -380,13 +384,13 @@ export default function Campos() {
           contentContainerStyle={styles.container}
           showsVerticalScrollIndicator={false}
         >
-          <Text style={[styles.titulo, { color: c.texto, marginBottom: 25 }]}>📍 Campos</Text>
+          <Text style={[styles.titulo, { color: c.texto, marginBottom: 25 }]}>📍 {t('fields.title')}</Text>
 
           {activos.length === 0 ? (
             <View style={[styles.emptyCard, { backgroundColor: c.input, borderColor: c.bordeInput }]}>
               <Text style={{ fontSize: 30, marginBottom: 8 }}>🏟</Text>
               <Text style={[styles.emptyText, { color: c.subtexto, textAlign: 'center' }]}>
-                El club aún no ha registrado campos de entrenamiento
+                {t('fields.emptyNotice')}
               </Text>
             </View>
           ) : (
@@ -399,6 +403,7 @@ export default function Campos() {
                   brokenImgs={brokenImgs}
                   setBrokenImgs={setBrokenImgs}
                   onMaps={() => abrirMaps(campo)}
+                  howToGetLabel={t('fields.howToGet')}
                 />
               ))}
             </View>
@@ -416,7 +421,7 @@ export default function Campos() {
 
           {/* HEADER */}
           <View style={styles.header}>
-            <Text style={[styles.titulo, { color: c.texto }]}>📍 Campos</Text>
+            <Text style={[styles.titulo, { color: c.texto }]}>📍 {t('fields.title')}</Text>
             {canCreate && (
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <TouchableOpacity
@@ -426,14 +431,14 @@ export default function Campos() {
                 >
                   {isImporting
                     ? <ActivityIndicator size="small" color={c.boton} />
-                    : <Text style={{ color: c.boton, fontWeight: 'bold', fontSize: 13 }}>📥 Importar</Text>
+                    : <Text style={{ color: c.boton, fontWeight: 'bold', fontSize: 13 }}>{t('fields.import')}</Text>
                   }
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.addButton, { backgroundColor: c.boton }]}
                   onPress={() => setModal(true)}
                 >
-                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13 }}>+ Añadir campo</Text>
+                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13 }}>{t('fields.addField')}</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -441,14 +446,14 @@ export default function Campos() {
 
           {campos.length === 0 && (
             <View style={[styles.emptyCard, { backgroundColor: c.input, borderColor: c.bordeInput }]}>
-              <Text style={[styles.emptyText, { color: c.subtexto }]}>🏟 No hay campos registrados</Text>
+              <Text style={[styles.emptyText, { color: c.subtexto }]}>🏟 {t('fields.noFields')}</Text>
             </View>
           )}
 
           {/* ACTIVOS */}
           {activos.length > 0 && (
             <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: c.subtexto }]}>Activos</Text>
+              <Text style={[styles.sectionLabel, { color: c.subtexto }]}>{t('fields.activeSection')}</Text>
               <View style={styles.listWrapper}>
                 {activos.map(campo => (
                   <CampoCard
@@ -465,7 +470,7 @@ export default function Campos() {
                             style={[styles.actionButton, { backgroundColor: '#f59e0b12', borderColor: '#f59e0b30' }]}
                             onPress={() => toggleActivo(campo.id)}
                           >
-                            <Text style={[styles.actionButtonText, { color: '#f59e0b' }]}>Desactivar</Text>
+                            <Text style={[styles.actionButtonText, { color: '#f59e0b' }]}>{t('fields.deactivate')}</Text>
                           </TouchableOpacity>
                         )}
                         {canDelete && (
@@ -487,7 +492,7 @@ export default function Campos() {
           {/* INACTIVOS — lista compacta sin imagen */}
           {canToggle && inactivos.length > 0 && (
             <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: c.subtexto }]}>Inactivos</Text>
+              <Text style={[styles.sectionLabel, { color: c.subtexto }]}>{t('fields.inactiveSection')}</Text>
               <View style={{ gap: 8 }}>
                 {inactivos.map((campo, index) => (
                   <View
@@ -505,7 +510,7 @@ export default function Campos() {
                         onPress={() => toggleActivo(campo.id)}
                         style={[styles.miniButton, { backgroundColor: `${c.boton}15` }]}
                       >
-                        <Text style={{ color: c.boton, fontSize: 12, fontWeight: 'bold' }}>Activar</Text>
+                        <Text style={{ color: c.boton, fontSize: 12, fontWeight: 'bold' }}>{t('fields.activate')}</Text>
                       </TouchableOpacity>
                       {canDelete && (
                         <TouchableOpacity
@@ -530,7 +535,7 @@ export default function Campos() {
             <Pressable style={[styles.modalCard, { backgroundColor: c.fondo, borderColor: c.bordeInput }]} onPress={() => {}}>
 
               <View style={styles.modalHeader}>
-                <Text style={[styles.modalTitulo, { color: c.texto }]}>📍 Añadir campo</Text>
+                <Text style={[styles.modalTitulo, { color: c.texto }]}>{t('fields.addFieldTitle')}</Text>
                 <TouchableOpacity onPress={cerrarModal} disabled={saving}>
                   <Text style={{ color: c.subtexto, fontSize: 20 }}>✕</Text>
                 </TouchableOpacity>
@@ -538,36 +543,36 @@ export default function Campos() {
 
               <View style={{ gap: 14 }}>
                 <View>
-                  <Text style={[styles.label, { color: c.subtexto }]}>Nombre *</Text>
+                  <Text style={[styles.label, { color: c.subtexto }]}>{t('fields.name')} *</Text>
                   <TextInput
                     style={[styles.input, { backgroundColor: c.input, borderColor: c.bordeInput, color: c.texto }]}
                     value={nombre}
                     onChangeText={setNombre}
-                    placeholder="Campo Municipal..."
+                    placeholder={t('fields.namePlaceholder')}
                     placeholderTextColor={c.subtexto}
                     editable={!saving}
                   />
                 </View>
                 <View>
-                  <Text style={[styles.label, { color: c.subtexto }]}>Dirección *</Text>
+                  <Text style={[styles.label, { color: c.subtexto }]}>{t('fields.address')} *</Text>
                   <TextInput
                     style={[styles.input, { backgroundColor: c.input, borderColor: c.bordeInput, color: c.texto }]}
                     value={direccion}
                     onChangeText={setDireccion}
-                    placeholder="Calle..."
+                    placeholder={t('fields.addressPlaceholder')}
                     placeholderTextColor={c.subtexto}
                     editable={!saving}
                   />
                 </View>
                 <View>
                   <Text style={[styles.label, { color: c.subtexto }]}>
-                    Enlace Google Maps <Text style={{ fontStyle: 'italic' }}>(opcional)</Text>
+                    {t('fields.mapsUrl')} <Text style={{ fontStyle: 'italic' }}>({t('common.optional')})</Text>
                   </Text>
                   <TextInput
                     style={[styles.input, { backgroundColor: c.input, borderColor: c.bordeInput, color: c.texto }]}
                     value={mapsUrl}
                     onChangeText={setMapsUrl}
-                    placeholder="https://goo.gl/maps/..."
+                    placeholder={t('fields.mapsUrlPlaceholder')}
                     placeholderTextColor={c.subtexto}
                     autoCapitalize="none"
                     editable={!saving}
@@ -575,7 +580,7 @@ export default function Campos() {
                 </View>
                 <View>
                   <Text style={[styles.label, { color: c.subtexto }]}>
-                    Foto del campo <Text style={{ fontStyle: 'italic' }}>(URL, opcional)</Text>
+                    {t('fields.photoUrlLabel')} <Text style={{ fontStyle: 'italic' }}>({t('common.optional')})</Text>
                   </Text>
                   <TextInput
                     style={[styles.input, { backgroundColor: c.input, borderColor: c.bordeInput, color: c.texto }]}
@@ -602,7 +607,7 @@ export default function Campos() {
                   {saving ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
-                    <Text style={styles.btnGuardarText}>Guardar campo</Text>
+                    <Text style={styles.btnGuardarText}>{t('fields.save')}</Text>
                   )}
                 </TouchableOpacity>
               </View>

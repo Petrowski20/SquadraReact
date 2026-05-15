@@ -1,5 +1,6 @@
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Image,
@@ -17,6 +18,7 @@ import { useTheme } from "../../lib/useTheme";
 export default function Inicio() {
   const c = useTheme();
   const router = useRouter();
+  const { t } = useTranslation();
 
   // ── STORE ─────────────────────────────────────────────────────────────────
   const profile = useAuthStore((s: any) => s.profile);
@@ -50,10 +52,10 @@ export default function Inicio() {
     const h = new Date().getHours();
     setSaludo(
       h >= 6 && h < 12
-        ? "Buenos días"
+        ? "home.goodMorning"
         : h >= 12 && h < 20
-          ? "Buenas tardes"
-          : "Buenas noches",
+          ? "home.goodAfternoon"
+          : "home.goodEvening",
     );
   }, []);
 
@@ -123,7 +125,7 @@ export default function Inicio() {
           <View style={styles.headerRow}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.saludo, { color: c.subtexto }]}>
-                {saludo},
+                {saludo ? t(saludo) : ''},
               </Text>
               <Text style={[styles.userName, { color: c.texto }]}>
                 {profile?.firstName || (isPresident ? "Presidente" : "Usuario")}{" "}
@@ -175,7 +177,7 @@ export default function Inicio() {
                   style={[styles.chip, { backgroundColor: `${c.boton}20` }]}
                 >
                   <Text style={[styles.chipText, { color: c.boton }]}>
-                    👑 Presidencia
+                    👑 {t('home.presidencia')}
                   </Text>
                 </View>
               ) : null}
@@ -194,19 +196,17 @@ export default function Inicio() {
             <View style={[styles.noTeamCard, { backgroundColor: cardBg }]}>
               <Text style={{ fontSize: 40, marginBottom: 10 }}>🏟️</Text>
               <Text style={[styles.noTeamTitle, { color: c.texto }]}>
-                {isPresident ? "¡Bienvenido, Presidente!" : "¡Bienvenido!"}
+                {isPresident ? t('home.welcomePresident') : t('home.welcome')}
               </Text>
               <Text style={[styles.noTeamSub, { color: c.subtexto }]}>
-                {isPresident
-                  ? "El siguiente paso es crear tu primer equipo desde el menú de gestión."
-                  : "Aún no tienes un equipo asignado. Espera a que el club te añada."}
+                {isPresident ? t('home.noTeamPresident') : t('home.noTeamPlayer')}
               </Text>
               {isPresident && (
                 <TouchableOpacity
                   style={[styles.btnCrear, { backgroundColor: c.boton }]}
                   onPress={() => router.push("/(club)/gestion-presidente")}
                 >
-                  <Text style={styles.btnCrearText}>Ir a Gestión</Text>
+                  <Text style={styles.btnCrearText}>{t('home.goToManagement')}</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -216,11 +216,11 @@ export default function Inicio() {
               {/* ── Último anuncio ── */}
               <View style={styles.sectionHeader}>
                 <Text style={[styles.sectionTitle, { color: c.texto }]}>
-                  Último Anuncio
+                  {t('home.latestAnnouncement')}
                 </Text>
                 <TouchableOpacity onPress={() => router.push("/tablon")}>
                   <Text style={[styles.linkText, { color: c.boton }]}>
-                    Ver tablón
+                    {t('home.seeBoard')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -264,7 +264,7 @@ export default function Inicio() {
                   ]}
                 >
                   <Text style={{ color: c.subtexto, textAlign: "center" }}>
-                    No hay anuncios para mostrar aún.
+                    {t('home.noAnnouncementsYet')}
                   </Text>
                 </View>
               )}
@@ -272,11 +272,11 @@ export default function Inicio() {
               {/* ── Próximos eventos ── */}
               <View style={[styles.sectionHeader, { marginTop: 30 }]}>
                 <Text style={[styles.sectionTitle, { color: c.texto }]}>
-                  Próximos Eventos
+                  {t('home.upcomingEvents')}
                 </Text>
                 <TouchableOpacity onPress={() => router.push("/calendario")}>
                   <Text style={[styles.linkText, { color: c.boton }]}>
-                    Ver todos
+                    {t('home.seeAll')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -339,7 +339,7 @@ export default function Inicio() {
                   ]}
                 >
                   <Text style={{ color: c.subtexto, textAlign: "center" }}>
-                    No hay eventos programados.
+                    {t('home.noEventsScheduled')}
                   </Text>
                 </View>
               )}

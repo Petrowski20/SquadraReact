@@ -60,11 +60,11 @@ function WideLayout() {
       >
         {/* Mini-header para alinear visualmente con el CalendarHeader */}
         <View style={styles.leftPanelHeader}>
-          <Text style={[styles.leftPanelSub, { color: c.subtexto }]}>
-            Temporada {currentSeasonLabel}
-          </Text>
           <Text style={[styles.leftPanelTitle, { color: c.texto }]}>
             Horarios
+          </Text>
+          <Text style={[styles.leftPanelSub, { color: c.subtexto }]}>
+            Temporada {currentSeasonLabel}
           </Text>
         </View>
 
@@ -213,14 +213,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 6,
   },
-  leftPanelSub: {
-    fontSize: 12,
-    fontWeight: "500",
-    marginBottom: 2,
-  },
   leftPanelTitle: {
     fontSize: 22,
     fontWeight: "bold",
+    marginBottom: 2,
+  },
+  leftPanelSub: {
+    fontSize: 12,
+    fontWeight: "500",
   },
   rightPanel: {
     flex: 2,

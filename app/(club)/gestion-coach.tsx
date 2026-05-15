@@ -907,7 +907,7 @@ export default function GestionCoach() {
       <View style={[s.container, { backgroundColor: c.fondo }]}>
         {/* Cabecera */}
         <View style={[s.header, { backgroundColor: c.fondo }]}>
-          <Text style={[s.headerTitle, { color: c.texto }]}>Gestión Coach</Text>
+          <Text style={[s.headerTitle, { color: c.texto }]}>Entrenador</Text>
           <Text style={[s.headerSub, { color: c.subtexto }]}>
             Temporada {seasonLabel}
           </Text>
