@@ -94,11 +94,11 @@ export default function TabEquipos() {
         return (
           <View key={team.id} style={[styles.card, { backgroundColor: c.input, borderColor: c.bordeInput, flexDirection: "row", alignItems: "center" }]}>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.cardTitle, { color: c.texto }]}>{`${catLabel} · ${team.gender === "MALE" ? "Masc." : team.gender === "FEMALE" ? "Fem." : "Mixto"} · ${team.suffix}`}</Text>
-              <Text style={{ color: c.subtexto, fontSize: 12, marginTop: 4 }}>{`Temporada ${team.seasonLabel}`}</Text>
+              <Text style={[styles.cardTitle, { color: c.texto }]}>{`${catLabel} · ${team.gender === "MALE" ? t('myClub.gender_male') : team.gender === "FEMALE" ? t('myClub.gender_female') : t('myClub.gender_mixed')} · ${team.suffix}`}</Text>
+              <Text style={{ color: c.subtexto, fontSize: 12, marginTop: 4 }}>{`${t('calendar.season')} ${team.seasonLabel}`}</Text>
             </View>
             <TouchableOpacity onPress={() => handleDeleteTeam(team.id)}>
-              <Text style={{ color: "#DC2626", fontWeight: "bold", paddingHorizontal: 8 }}>{"Borrar"}</Text>
+              <Text style={{ color: "#DC2626", fontWeight: "bold", paddingHorizontal: 8 }}>{t('presidentManagement.deleteTeam')}</Text>
             </TouchableOpacity>
           </View>
         );

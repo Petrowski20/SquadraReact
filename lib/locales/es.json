@@ -52,10 +52,7 @@
   "registerLink": "Regístrate",
   "errorEmail": "Introduce un formato de email válido (ej: correo@dominio.com)",
   "errorPassword": "La contraseña es obligatoria.",
-  "errorCredentials": "Las credenciales son incorrectas. Revisa tu email y contraseña.",
-  "errorGoogle": "Error al conectar con Google. Inténtalo de nuevo.",
-  "continueWithGoogle": "Continuar con Google",
-  "or": "o"
+  "errorCredentials": "Las credenciales son incorrectas. Revisa tu email y contraseña."
 },
 "forgotPassword": {
     "title": "Recuperar contraseña",
@@ -247,13 +244,38 @@
   "away": "Visitante",
   "matchDay": "Jornada",
   "result": "Resultado",
-  "noEvents": "No hay eventos este mes"
+  "noEvents": "No hay eventos este mes",
+  "friendly": "Amistoso",
+  "league": "Liga",
+  "cup": "Copa",
+  "tournament": "Torneo",
+  "other": "Partido"
 },
 "calendar": {
   "title": "Calendario",
   "match": "Partido",
-  "training": "Entrenamiento"
+  "training": "Entrenamiento",
+  "season": "Temporada",
+  "schedules": "Horarios",
+  "tabCalendar": "📅 Calendario",
+  "tabList": "📋 Lista",
+  "all": "Todos",
+  "matchLegend": "Partido",
+  "trainLegend": "Entreno",
+  "emptyAll": "No hay eventos programados este mes.",
+  "emptyMatches": "No hay partidos programados este mes.",
+  "emptyTrainings": "No hay entrenamientos programados este mes.",
+  "fieldPending": "Campo por confirmar",
+  "home": "🏠 Local",
+  "away": "✈️ Visitante",
+  "startMatch": "🟢 Iniciar Partido",
+  "viewStats": "📊 Ver/Editar Estadísticas",
+  "loading": "Cargando eventos...",
+  "matchesFilter": "Partidos",
+  "trainingsFilter": "Entrenos"
 },
+"months": ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"],
+"days": ["L","M","X","J","V","S","D"],
 "coachManagement": {
   "title": "Gestión",
   "createEvent": "+ Crear entrenamiento / partido",
@@ -288,7 +310,23 @@
   "createOpponentPlaceholder": "Nombre del equipo rival",
   "createField": "Campo",
   "createFieldPlaceholder": "Nombre del campo",
-  "createSave": "Crear evento"
+  "createSave": "Crear evento",
+  "coachTitle": "Entrenador",
+  "tab_attendance": "ASISTENCIA",
+  "tab_callups": "CONVOCATORIAS",
+  "tab_stats": "STATS",
+  "tab_fines": "MULTAS",
+  "newFine": "+ Nueva multa",
+  "noFines": "Sin multas registradas.",
+  "newFineTitle": "Nueva multa",
+  "fineSelectPlayer": "Selecciona jugador",
+  "fineCreate": "Crear multa",
+  "noStats": "Sin estadísticas registradas esta temporada.",
+  "statGoals": "Goles",
+  "statAssists": "Asist.",
+  "statYellow": "Amarillas",
+  "statRed": "Rojas",
+  "statMinutes": "Minutos"
 },
 "presidentManagement": {
   "title": "Gestión",
@@ -349,7 +387,11 @@
   "seasonSave": "Crear temporada",
   "activate": "Activar",
   "deactivate": "Desactivar",
-  "active": "Activa"
+  "active": "Activa",
+  "adminTitle": "Administración",
+  "deleteTeam": "Borrar",
+  "tab_teams": "Equipos",
+  "newFeeTitle": "Nueva Cuota"
 },
 "nav": {
   "home": "Inicio",
@@ -390,7 +432,9 @@
   "pwErrorMismatch": "Las contraseñas no coinciden",
   "pwSuccess": "Contraseña actualizada correctamente",
   "pwError": "Error al cambiar la contraseña",
-  "unknownUser": "Usuario"
+  "unknownUser": "Usuario",
+  "linkedPlayer": "Jugador vinculado",
+  "linkedPlayers": "Jugadores vinculados"
 },
 "categories": {
   "prebenjamin": "Prebenjamín",
@@ -423,7 +467,8 @@
   "inactiveSection": "Inactivos",
   "emptyNotice": "El club aún no ha registrado campos de entrenamiento",
   "addFieldTitle": "📍 Añadir campo",
-  "photoUrlLabel": "Foto del campo"
+  "photoUrlLabel": "Foto del campo",
+  "delete": "🗑 Eliminar"
 },
 "gallery": {
   "emptyTitle": "Sin fotos todavía",

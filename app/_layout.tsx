@@ -4,9 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from "react";
 import { Platform } from "react-native";
 import "../lib/i18n";
-import { supabase } from "../lib/supabase";
 import { useAuthStore } from "../lib/store";
-import { apiFetch } from "../lib/api";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -44,34 +42,6 @@ export default function RootLayout() {
     }
   }, []);
 
-  // Native: propagate Supabase OAuth sessions (Google sign-in) to the store
-  useEffect(() => {
-    if (Platform.OS === 'web') return;
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        const user = session.user;
-        const fullName = user.user_metadata?.full_name ?? user.user_metadata?.name ?? '';
-        const parts = fullName.split(' ');
-        const firstName = user.user_metadata?.given_name ?? parts[0] ?? '';
-        const lastName = user.user_metadata?.family_name ?? parts.slice(1).join(' ') ?? '';
-
-        useAuthStore.getState().setAuth(session.access_token, {
-          userId: user.id,
-          email: user.email ?? '',
-          firstName,
-          lastName,
-          phone: user.phone ?? null,
-          docType: null,
-          docNumber: null,
-          photoUrl: user.user_metadata?.avatar_url ?? null,
-        });
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
   // Web: persist store changes to localStorage
   useEffect(() => {
     if (Platform.OS !== 'web') return;
@@ -100,29 +70,11 @@ export default function RootLayout() {
     if ((!fontsLoaded && !fontError) || !isReady) return;
     if (!navigationState?.key) return; // router aún no está listo
 
-    const inAuthGroup = segments[0] === "(auth)" || segments[0] === "(completar-perfil)";
+    const inAuthGroup = segments[0] === "(auth)";
     if (!token && !inAuthGroup) {
       router.replace("/(auth)");
     } else if (token && segments[0] === "(auth)") {
       router.replace("/(selector)");
-    } else if (token && !inAuthGroup && segments[0] !== "(selector)" && segments[0] !== "(club)") {
-      supabase.auth.getUser().then(({ data }) => {
-        const provider = data.user?.app_metadata?.provider;
-        if (provider !== "google") return; // usuarios email/password no necesitan completar perfil
-
-        apiFetch("/profiles/me").then(async (res) => {
-          if (!res.ok) {
-            router.replace("/(completar-perfil)");
-            return;
-          }
-          const profile = await res.json();
-          if (!profile.phone || !profile.docNumber) {
-            router.replace("/(completar-perfil)");
-          }
-        }).catch(() => {
-          // Backend unreachable (e.g. Render cold start) — skip profile check
-        });
-      });
     }
   }, [token, fontsLoaded, fontError, isReady, segments, navigationState?.key]);
 
@@ -131,7 +83,6 @@ export default function RootLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(auth)" />
-      <Stack.Screen name="(completar-perfil)" />
       <Stack.Screen name="(selector)" />
       <Stack.Screen name="(club)" />
     </Stack>

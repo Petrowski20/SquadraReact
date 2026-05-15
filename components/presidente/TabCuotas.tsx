@@ -1,5 +1,7 @@
+import DateTimePicker from "@react-native-community/datetimepicker";
 import React, { useCallback, useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, ScrollView, Modal, TextInput, StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
+import { useTranslation } from "react-i18next";
+import { ActivityIndicator, Alert, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { apiFetch } from "../../lib/api";
 import { useAuthStore } from "../../lib/store";
 import { useTheme } from "../../lib/useTheme";
@@ -9,8 +11,6 @@ interface PaymentItem { paymentId: number; playerId: number; playerName: string;
 interface FeeWithPayments { feeId: number; concept: string; amount: number; dueDate: string; teamName?: string; payments: PaymentItem[]; }
 interface Team { id: number; category: string; gender: string; suffix: string; seasonLabel: string; }
 
-const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-const DIAS_SEMANA = ["L", "M", "X", "J", "V", "S", "D"];
 const getTodayStr = () => new Date().toISOString().split("T")[0];
 const computedStatus = (status: PaymentStatus, dueDate: string): PaymentStatus => {
   if (status === "PAID") return "PAID";
@@ -20,6 +20,7 @@ const computedStatus = (status: PaymentStatus, dueDate: string): PaymentStatus =
 
 export default function TabCuotas() {
   const c = useTheme();
+  const { t } = useTranslation();
   const { activeClubId: clubId, activeSeasonName } = useAuthStore();
   const seasonLabel = activeSeasonName || "24-25";
 
@@ -32,6 +33,7 @@ export default function TabCuotas() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [createFeeModal, setCreateFeeModal] = useState(false);
   const [feeForm, setFeeForm] = useState<{ teamId: number | "ALL"; concept?: string; amount?: string; dueDate?: string }>({ teamId: "ALL" });
+  const [feeError, setFeeError] = useState("");
   
   const [showDatePicker, setShowDatePicker] = useState(false);
   const now = new Date();
@@ -61,15 +63,26 @@ export default function TabCuotas() {
   useEffect(() => { fetchTeams(); fetchFees(0); }, [fetchTeams, fetchFees]);
 
   const handleCreateFee = async () => {
-    if (!feeForm.concept?.trim() || !feeForm.amount || !feeForm.dueDate) return Alert.alert("Atención", "Rellena todos los campos.");
+    setFeeError("");
+
+    if (!feeForm.concept?.trim() || !feeForm.amount || !feeForm.dueDate) {
+      setFeeError("Por favor, rellena todos los campos.");
+      return;
+    }
     const parsedAmount = parseFloat(String(feeForm.amount).replace(",", "."));
-    if (isNaN(parsedAmount) || parsedAmount <= 0) return Alert.alert("Atención", "Importe no válido.");
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      setFeeError("El importe debe ser un número mayor que 0.");
+      return;
+    }
 
     const [dy, dm, dd] = feeForm.dueDate!.split("-").map(Number);
     const dueDay = new Date(dy, dm - 1, dd);
     const todayFee = new Date();
     todayFee.setHours(0, 0, 0, 0);
-    if (dueDay < todayFee) return Alert.alert("Atención", "La fecha de la cuota no puede ser anterior a hoy.");
+    if (dueDay < todayFee) {
+      setFeeError("La fecha de vencimiento no puede ser anterior a hoy.");
+      return;
+    }
 
     const targetTeamIds = feeForm.teamId === "ALL" ? teams.map((t) => t.id) : [Number(feeForm.teamId)];
     if (targetTeamIds.length === 0) return Alert.alert("Atención", "No hay equipos.");
@@ -213,12 +226,12 @@ export default function TabCuotas() {
         <View style={styles.modalOverlay}>
           <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end" }} keyboardShouldPersistTaps="handled">
             <View style={[styles.modalBox, { backgroundColor: c.fondo }]}>
-              <Text style={[styles.modalTitle, { color: c.texto }]}>{"Nueva Cuota"}</Text>
-              
-              <Text style={[styles.inputLabel, { color: c.texto }]}>{"Asignar a:"}</Text>
+              <Text style={[styles.modalTitle, { color: c.texto }]}>{t('presidentManagement.newFeeTitle')}</Text>
+
+              <Text style={[styles.inputLabel, { color: c.texto }]}>{t('presidentManagement.feeTeam')}:</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
                 <TouchableOpacity onPress={() => setFeeForm((f) => ({ ...f, teamId: "ALL" }))} style={[styles.chip, feeForm.teamId === "ALL" ? { backgroundColor: c.boton } : { backgroundColor: c.input, borderWidth: 1, borderColor: c.bordeInput }]}>
-                  <Text style={{ color: feeForm.teamId === "ALL" ? "#fff" : c.subtexto, fontWeight: "bold" }}>{"🌐 Todo el club"}</Text>
+                  <Text style={{ color: feeForm.teamId === "ALL" ? "#fff" : c.subtexto, fontWeight: "bold" }}>{"🌐 "}{t('presidentManagement.feeAllClub')}</Text>
                 </TouchableOpacity>
                 {teams.map((t) => (
                   <TouchableOpacity key={t.id} onPress={() => setFeeForm((f) => ({ ...f, teamId: t.id }))} style={[styles.chip, feeForm.teamId === t.id ? { backgroundColor: c.boton } : { backgroundColor: c.input, borderWidth: 1, borderColor: c.bordeInput }]}>
@@ -227,57 +240,105 @@ export default function TabCuotas() {
                 ))}
               </ScrollView>
 
-              <Text style={[styles.inputLabel, { color: c.texto }]}>{"Concepto de la cuota:"}</Text>
-              <TextInput style={[styles.textInput, { backgroundColor: c.input, color: c.texto, borderColor: c.bordeInput }]} placeholder="Ej: Matrícula Anual" placeholderTextColor={c.subtexto} onChangeText={(v) => setFeeForm((f) => ({ ...f, concept: v }))} value={feeForm.concept ?? ""} />
+              <Text style={[styles.inputLabel, { color: c.texto }]}>{t('presidentManagement.feeConcept')}:</Text>
+              <TextInput style={[styles.textInput, { backgroundColor: c.input, color: c.texto, borderColor: c.bordeInput }]} placeholder={t('presidentManagement.feeConceptPlaceholder')} placeholderTextColor={c.subtexto} onChangeText={(v) => setFeeForm((f) => ({ ...f, concept: v }))} value={feeForm.concept ?? ""} />
 
               <View style={{ flexDirection: "row", gap: 10 }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.inputLabel, { color: c.texto }]}>{"Importe (€):"}</Text>
-                  <TextInput style={[styles.textInput, { backgroundColor: c.input, color: c.texto, borderColor: c.bordeInput }]} placeholder="50.00" placeholderTextColor={c.subtexto} keyboardType="numeric" onChangeText={(v) => setFeeForm((f) => ({ ...f, amount: v }))} value={feeForm.amount ?? ""} />
+                  <Text style={[styles.inputLabel, { color: c.texto }]}>{t('presidentManagement.feeAmount')}:</Text>
+                  <TextInput 
+                    style={[styles.textInput, { backgroundColor: c.input, color: c.texto, borderColor: c.bordeInput }]} 
+                    placeholder={t('presidentManagement.feeAmountPlaceholder')} 
+                    placeholderTextColor={c.subtexto} 
+                    keyboardType="numeric" 
+                    onChangeText={(v) => {
+                      // Filtro para admitir solo números y puntuación en Web y Móvil
+                      const cleanedText = v.replace(/[^0-9.,]/g, "");
+                      setFeeForm((f) => ({ ...f, amount: cleanedText }));
+                    }} 
+                    value={feeForm.amount ?? ""} 
+                  />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.inputLabel, { color: c.texto }]}>{"Vencimiento:"}</Text>
-                  <TouchableOpacity style={[styles.textInput, { backgroundColor: c.input, justifyContent: "center", borderColor: c.bordeInput }]} onPress={() => setShowDatePicker(true)}>
-                    <Text style={{ color: feeForm.dueDate ? c.texto : c.subtexto }}>{feeForm.dueDate ?? "Seleccionar 📅"}</Text>
-                  </TouchableOpacity>
+                  <Text style={[styles.inputLabel, { color: c.texto }]}>{t('presidentManagement.feeDueDate')}:</Text>
+                  
+                  {Platform.OS === "web" ? (
+                    <View style={[styles.textInput, { backgroundColor: c.input, justifyContent: "center", borderColor: c.bordeInput, padding: 0, overflow: "hidden" }]}>
+                      {/* @ts-ignore - input nativo de HTML para web */}
+                      <input
+                        type="date"
+                        style={{
+                          backgroundColor: "transparent", border: "none", color: c.texto, padding: "14px", width: "100%", outline: "none", colorScheme: "dark", fontSize: "15px"
+                        }}
+                        value={feeForm.dueDate ?? ""}
+                        onChange={(e) => setFeeForm((f) => ({ ...f, dueDate: e.target.value }))}
+                      />
+                    </View>
+                  ) : (
+                    <TouchableOpacity 
+                      style={[styles.textInput, { backgroundColor: c.input, justifyContent: "center", borderColor: c.bordeInput }]} 
+                      onPress={() => setShowDatePicker(true)}
+                    >
+                      <Text style={{ color: feeForm.dueDate ? c.texto : c.subtexto }}>
+                        {feeForm.dueDate ?? "Seleccionar 📅"}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
 
+              {/* TEXTO DE ERROR */}
+              {feeError !== "" && (
+                <Text style={{ color: "#ef4444", marginBottom: 12, textAlign: "center", fontWeight: "600", fontSize: 13 }}>
+                  ⚠️ {feeError}
+                </Text>
+              )}
+
               <View style={{ flexDirection: "row", gap: 10, marginTop: 15 }}>
-                <TouchableOpacity style={[styles.btnMain, { backgroundColor: c.input, flex: 1, borderWidth: 1, borderColor: c.bordeInput }]} onPress={() => setCreateFeeModal(false)}>
-                  <Text style={{ color: c.texto, fontWeight: "bold" }}>{"Cancelar"}</Text>
+                <TouchableOpacity 
+                  style={[styles.btnMain, { backgroundColor: c.input, flex: 1, borderWidth: 1, borderColor: c.bordeInput }]} 
+                  onPress={() => {
+                    setCreateFeeModal(false);
+                    setFeeError("");
+                  }}
+                >
+                  <Text style={{ color: c.texto, fontWeight: "bold" }}>{t('presidentManagement.cancel')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.btnMain, { backgroundColor: c.boton, flex: 1 }]} onPress={handleCreateFee}>
-                  <Text style={{ color: "#fff", fontWeight: "bold" }}>{"Generar Cuota"}</Text>
+                  <Text style={{ color: "#fff", fontWeight: "bold" }}>{t('presidentManagement.feeSave')}</Text>
                 </TouchableOpacity>
               </View>
+
+              {/* SELECTOR NATIVO PARA MÓVILES */}
+              {showDatePicker && Platform.OS !== "web" && (
+                <>
+                  <DateTimePicker
+                    value={feeForm.dueDate ? new Date(feeForm.dueDate) : new Date()}
+                    mode="date"
+                    display={Platform.OS === "ios" ? "spinner" : "default"}
+                    onChange={(event, selectedDate) => {
+                      if (Platform.OS === "android") setShowDatePicker(false);
+                      if (selectedDate) {
+                        const yyyy = selectedDate.getFullYear();
+                        const mm = String(selectedDate.getMonth() + 1).padStart(2, "0");
+                        const dd = String(selectedDate.getDate()).padStart(2, "0");
+                        setFeeForm((f) => ({ ...f, dueDate: `${yyyy}-${mm}-${dd}` }));
+                      }
+                    }}
+                  />
+                  {Platform.OS === "ios" && (
+                    <TouchableOpacity 
+                      style={[styles.btnMain, { backgroundColor: c.boton, marginTop: 10 }]} 
+                      onPress={() => setShowDatePicker(false)}
+                    >
+                      <Text style={{ color: "#fff", fontWeight: "bold" }}>Aceptar Fecha</Text>
+                    </TouchableOpacity>
+                  )}
+                </>
+              )}
+
             </View>
           </ScrollView>
-        </View>
-      </Modal>
-
-      {/* MODAL CALENDARIO */}
-      <Modal visible={showDatePicker} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalBox, { backgroundColor: c.fondo, paddingBottom: 20 }]}>
-            <Text style={[styles.modalTitle, { color: c.texto }]}>{"Seleccionar Vencimiento"}</Text>
-            <View style={styles.monthNav}>
-              <TouchableOpacity onPress={() => { if (calMonth === 0) { setCalMonth(11); setCalYear((y) => y - 1); } else { setCalMonth((m) => m - 1); } }}>
-                <Text style={{ fontSize: 16, fontWeight: "bold", color: c.boton }}>{"‹ Anterior"}</Text>
-              </TouchableOpacity>
-              <Text style={{ fontSize: 16, fontWeight: "bold", color: c.texto }}>{`${MESES[calMonth]} ${calYear}`}</Text>
-              <TouchableOpacity onPress={() => { if (calMonth === 11) { setCalMonth(0); setCalYear((y) => y + 1); } else { setCalMonth((m) => m + 1); } }}>
-                <Text style={{ fontSize: 16, fontWeight: "bold", color: c.boton }}>{"Siguiente ›"}</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={[styles.calendarWrapper, { borderColor: c.bordeInput }]}>
-              <View style={styles.weekRow}>{DIAS_SEMANA.map((d) => <Text key={d} style={{ width: 40, textAlign: "center", fontSize: 13, fontWeight: "600", color: c.subtexto }}>{d}</Text>)}</View>
-              {renderCalendarGrid()}
-            </View>
-            <TouchableOpacity style={[styles.btnMain, { backgroundColor: c.input, borderWidth: 1, borderColor: c.bordeInput, marginTop: 15 }]} onPress={() => setShowDatePicker(false)}>
-              <Text style={{ color: c.texto, fontWeight: "bold" }}>{"Cancelar"}</Text>
-            </TouchableOpacity>
-          </View>
         </View>
       </Modal>
     </ScrollView>

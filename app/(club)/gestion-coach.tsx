@@ -1,5 +1,6 @@
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Alert,
@@ -136,6 +137,7 @@ const formatEventLabel = (e: CalendarEvent): string => {
 
 export default function GestionCoach() {
   const c = useTheme();
+  const { t } = useTranslation();
   const {
     activeClubId: clubId,
     activeTeamId: storeTeamId,
@@ -199,6 +201,7 @@ export default function GestionCoach() {
   } | null>(null);
   const [fineReason, setFineReason] = useState("");
   const [fineAmount, setFineAmount] = useState("");
+  const [fineError, setFineError] = useState("");
 
   const [closeMatchModal, setCloseMatchModal] = useState(false);
   const [goalsFor, setGoalsFor] = useState("");
@@ -503,16 +506,15 @@ export default function GestionCoach() {
   };
 
   const handleCreateFine = async () => {
+    setFineError("");
+    
     if (!fineTarget || !fineReason || !fineAmount) {
-      Alert.alert(
-        "Aviso",
-        "Por favor rellena todos los campos y selecciona un jugador.",
-      );
+      setFineError("Por favor rellena todos los campos y selecciona un jugador.");
       return;
     }
     const parsedAmount = parseFloat(fineAmount.replace(",", "."));
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      Alert.alert("Atención", "El importe debe ser un número mayor que 0.");
+      setFineError("El importe debe ser un número mayor que 0.");
       return;
     }
     try {
@@ -728,11 +730,11 @@ export default function GestionCoach() {
 
   const renderStats = () => {
     const METRICS: { key: keyof GlobalStatsEntry; label: string; icon: string }[] = [
-      { key: "totalGoals",         label: "Goles",     icon: "⚽" },
-      { key: "totalAssists",       label: "Asist.",    icon: "🎯" },
-      { key: "totalYellowCards",   label: "Amarillas", icon: "🟨" },
-      { key: "totalRedCards",      label: "Rojas",     icon: "🟥" },
-      { key: "totalMinutesPlayed", label: "Minutos",   icon: "⏱" },
+      { key: "totalGoals",         label: t('coachManagement.statGoals'),   icon: "⚽" },
+      { key: "totalAssists",       label: t('coachManagement.statAssists'), icon: "🎯" },
+      { key: "totalYellowCards",   label: t('coachManagement.statYellow'),  icon: "🟨" },
+      { key: "totalRedCards",      label: t('coachManagement.statRed'),     icon: "🟥" },
+      { key: "totalMinutesPlayed", label: t('coachManagement.statMinutes'), icon: "⏱" },
     ];
 
     if (loadingGlobalStats) {
@@ -747,7 +749,7 @@ export default function GestionCoach() {
       return (
         <View style={s.tabContent}>
           <Text style={[s.hintText, { color: c.subtexto }]}>
-            Sin estadísticas registradas esta temporada.
+            {t('coachManagement.noStats')}
           </Text>
         </View>
       );
@@ -833,7 +835,7 @@ export default function GestionCoach() {
         onPress={() => setFineModal(true)}
       >
         <Text style={[s.btnPrimaryText, { color: c.botonTexto }]}>
-          + Nueva multa
+          {t('coachManagement.newFine')}
         </Text>
       </TouchableOpacity>
 
@@ -841,7 +843,7 @@ export default function GestionCoach() {
         <ActivityIndicator color={c.boton} style={{ marginTop: 20 }} />
       ) : fines.length === 0 ? (
         <Text style={[s.hintText, { color: c.subtexto }]}>
-          Sin multas registradas.
+          {t('coachManagement.noFines')}
         </Text>
       ) : (
         fines.map((f) => (
@@ -907,9 +909,9 @@ export default function GestionCoach() {
       <View style={[s.container, { backgroundColor: c.fondo }]}>
         {/* Cabecera */}
         <View style={[s.header, { backgroundColor: c.fondo }]}>
-          <Text style={[s.headerTitle, { color: c.texto }]}>Entrenador</Text>
+          <Text style={[s.headerTitle, { color: c.texto }]}>{t('coachManagement.coachTitle')}</Text>
           <Text style={[s.headerSub, { color: c.subtexto }]}>
-            Temporada {seasonLabel}
+            {t('calendar.season')} {seasonLabel}
           </Text>
         </View>
 
@@ -1006,28 +1008,36 @@ export default function GestionCoach() {
           {/* Tabs */}
           <View style={[s.tabBar, { borderBottomColor: c.bordeInput }]}>
             {(["ASISTENCIA", "CONVOCATORIAS", "STATS", "MULTAS"] as Tab[]).map(
-              (tab) => (
-                <TouchableOpacity
-                  key={tab}
-                  style={[
-                    s.tabItem,
-                    activeTab === tab && {
-                      borderBottomWidth: 2,
-                      borderBottomColor: c.boton,
-                    },
-                  ]}
-                  onPress={() => handleTabChange(tab)}
-                >
-                  <Text
+              (tab) => {
+                const TAB_LABEL: Record<Tab, string> = {
+                  ASISTENCIA: t('coachManagement.tab_attendance'),
+                  CONVOCATORIAS: t('coachManagement.tab_callups'),
+                  STATS: t('coachManagement.tab_stats'),
+                  MULTAS: t('coachManagement.tab_fines'),
+                };
+                return (
+                  <TouchableOpacity
+                    key={tab}
                     style={[
-                      s.tabText,
-                      { color: activeTab === tab ? c.boton : c.subtexto },
+                      s.tabItem,
+                      activeTab === tab && {
+                        borderBottomWidth: 2,
+                        borderBottomColor: c.boton,
+                      },
                     ]}
+                    onPress={() => handleTabChange(tab)}
                   >
-                    {tab}
-                  </Text>
-                </TouchableOpacity>
-              ),
+                    <Text
+                      style={[
+                        s.tabText,
+                        { color: activeTab === tab ? c.boton : c.subtexto },
+                      ]}
+                    >
+                      {TAB_LABEL[tab]}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              },
             )}
           </View>
 
@@ -1121,11 +1131,11 @@ export default function GestionCoach() {
                 ]}
               >
                 <Text style={[s.modalTitle, { color: c.texto }]}>
-                  Nueva multa
+                  {t('coachManagement.newFineTitle')}
                 </Text>
 
                 <Text style={[s.modalLabel, { color: c.subtexto }]}>
-                  Selecciona Jugador
+                  {t('coachManagement.fineSelectPlayer')}
                 </Text>
                 {/* Nuevo: ScrollView con los jugadores del equipo */}
                 <View
@@ -1182,7 +1192,7 @@ export default function GestionCoach() {
                 </View>
 
                 <Text style={[s.modalLabel, { color: c.subtexto }]}>
-                  Motivo
+                  {t('coachManagement.fineReason')}
                 </Text>
                 <TextInput
                   style={[
@@ -1195,7 +1205,7 @@ export default function GestionCoach() {
                       textAlignVertical: "top",
                     },
                   ]}
-                  placeholder="Describe el motivo (llegar tarde, sin espinilleras...)"
+                  placeholder={t('coachManagement.fineReasonPlaceholder')}
                   placeholderTextColor={c.subtexto}
                   value={fineReason}
                   onChangeText={setFineReason}
@@ -1203,7 +1213,7 @@ export default function GestionCoach() {
                 />
 
                 <Text style={[s.modalLabel, { color: c.subtexto }]}>
-                  Importe (€)
+                  {t('coachManagement.fineAmount')}
                 </Text>
                 <TextInput
                   style={[
@@ -1218,15 +1228,25 @@ export default function GestionCoach() {
                   placeholderTextColor={c.subtexto}
                   keyboardType="numeric"
                   value={fineAmount}
-                  onChangeText={setFineAmount}
+                  onChangeText={(text) => {
+                    const cleanedText = text.replace(/[^0-9.,]/g, "");
+                    setFineAmount(cleanedText);
+                  }}
                 />
+
+                {/* TEXTO DE ERROR EN ROJO */}
+                {fineError !== "" && (
+                  <Text style={{ color: "#ef4444", marginBottom: 12, textAlign: "center", fontWeight: "600", fontSize: 13 }}>
+                    ⚠️ {fineError}
+                  </Text>
+                )}
 
                 <TouchableOpacity
                   style={[s.btnPrimary, { backgroundColor: c.boton }]}
                   onPress={handleCreateFine}
                 >
                   <Text style={[s.btnPrimaryText, { color: c.botonTexto }]}>
-                    Crear multa
+                    {t('coachManagement.fineCreate')}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -1234,10 +1254,11 @@ export default function GestionCoach() {
                   onPress={() => {
                     setFineModal(false);
                     setFineTarget(null);
+                    setFineError(""); // Limpia el error al cancelar
                   }}
                 >
                   <Text style={{ color: c.subtexto, fontWeight: "600" }}>
-                    Cancelar
+                    {t('coachManagement.cancel')}
                   </Text>
                 </TouchableOpacity>
               </View>

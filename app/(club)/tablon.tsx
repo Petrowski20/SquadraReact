@@ -23,12 +23,6 @@ import { useAuthStore } from "../../lib/store";
 import { useTheme } from "../../lib/useTheme";
 import ScreenContainer from "../../components/ScreenContainer";
 
-if (
-  Platform.OS === "android" &&
-  UIManager.setLayoutAnimationEnabledExperimental
-) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 type Filtro = "TODOS" | "CLUB" | "EQUIPO";
 

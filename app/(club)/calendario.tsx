@@ -7,6 +7,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { useTranslation } from "react-i18next";
 import ScreenContainer from "../../components/ScreenContainer";
 import { useTheme } from "../../lib/useTheme";
 import CalendarGrid from "./dashboard/components/CalendarGrid";
@@ -47,6 +48,7 @@ function CreateFAB() {
 
 function WideLayout() {
   const c = useTheme();
+  const { t } = useTranslation();
   const { currentSeasonLabel } = useDashboard();
 
   return (
@@ -61,10 +63,10 @@ function WideLayout() {
         {/* Mini-header para alinear visualmente con el CalendarHeader */}
         <View style={styles.leftPanelHeader}>
           <Text style={[styles.leftPanelTitle, { color: c.texto }]}>
-            Horarios
+            {t('calendar.schedules')}
           </Text>
           <Text style={[styles.leftPanelSub, { color: c.subtexto }]}>
-            Temporada {currentSeasonLabel}
+            {t('calendar.season')} {currentSeasonLabel}
           </Text>
         </View>
 
@@ -85,6 +87,7 @@ function WideLayout() {
 
 function NarrowLayout() {
   const c = useTheme();
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<ActiveTab>("CALENDAR");
 
   return (
@@ -104,8 +107,8 @@ function NarrowLayout() {
         <View style={[styles.segmentedWrapper, { backgroundColor: c.input }]}>
           {(
             [
-              { key: "CALENDAR" as ActiveTab, label: "📅 Calendario" },
-              { key: "LIST" as ActiveTab, label: "📋 Lista" },
+              { key: "CALENDAR" as ActiveTab, label: t('calendar.tabCalendar') },
+              { key: "LIST" as ActiveTab, label: t('calendar.tabList') },
             ] as const
           ).map(({ key, label }) => {
             const active = activeTab === key;

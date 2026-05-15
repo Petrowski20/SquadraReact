@@ -463,6 +463,7 @@ export default function Campos() {
                     brokenImgs={brokenImgs}
                     setBrokenImgs={setBrokenImgs}
                     onMaps={() => abrirMaps(campo)}
+                    howToGetLabel={t('fields.howToGet')}
                     gestorActions={
                       <View style={styles.campoActions}>
                         {canToggle && (
@@ -478,7 +479,7 @@ export default function Campos() {
                             style={[styles.actionButton, { backgroundColor: '#ef444410', borderColor: '#ef444430' }]}
                             onPress={() => eliminarCampo(campo.id)}
                           >
-                            <Text style={[styles.actionButtonText, { color: '#ef4444' }]}>🗑 Eliminar</Text>
+                            <Text style={[styles.actionButtonText, { color: '#ef4444' }]}>{t('fields.delete')}</Text>
                           </TouchableOpacity>
                         )}
                       </View>

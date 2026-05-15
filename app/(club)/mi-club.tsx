@@ -143,11 +143,15 @@ export default function MiClub() {
       if (!clubId) { setLoading(false); return; }
       try {
         const res = await apiFetch(`/api/club/equipos/${clubId}`);
-        if (res.ok) {
-          const json = await res.json();
-          setTeams(json);
-          if (!selectedTeamId && json.length > 0) setSelectedTeamId(json[0].id);
+        const contentType = res.headers.get('content-type');
+        if (!res.ok || !contentType?.includes('application/json')) {
+          const text = await res.text();
+          console.error('Respuesta no JSON (equipos):', text);
+          throw new Error(text);
         }
+        const json = await res.json();
+        setTeams(json);
+        if (!selectedTeamId && json.length > 0) setSelectedTeamId(json[0].id);
       } catch (e) {
         console.error("Error cargando equipos:", e);
       } finally {
@@ -160,11 +164,24 @@ export default function MiClub() {
   useEffect(() => {
     if (!selectedTeamId || !seasonLabel) return;
     setLoading(true);
-    apiFetch(`/api/club/detalle/${selectedTeamId}?clubId=${clubId}&seasonLabel=${seasonLabel}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((json) => setData(json))
-      .catch(() => setData(null))
-      .finally(() => setLoading(false));
+    async function loadDetail() {
+      try {
+        const res = await apiFetch(`/api/club/detalle/${selectedTeamId}?clubId=${clubId}&seasonLabel=${seasonLabel}`);
+        const contentType = res.headers.get('content-type');
+        if (!res.ok || !contentType?.includes('application/json')) {
+          const text = await res.text();
+          console.error('Respuesta no JSON (detalle):', text);
+          setData(null);
+          return;
+        }
+        setData(await res.json());
+      } catch {
+        setData(null);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadDetail();
   }, [selectedTeamId, seasonLabel]);
 
   const openDetail = (person: any, isStaff = false) => {
@@ -184,7 +201,13 @@ export default function MiClub() {
       const res = await apiFetch(
         `/api/club/jugador/${jugador.id}/stats?clubId=${clubId}&teamId=${selectedTeamId}&seasonLabel=${seasonLabel}`
       );
-      if (res.ok) setPlayerStats(await res.json());
+      const contentType = res.headers.get('content-type');
+      if (!res.ok || !contentType?.includes('application/json')) {
+        const text = await res.text();
+        console.error('Respuesta no JSON (stats):', text);
+        throw new Error(text);
+      }
+      setPlayerStats(await res.json());
     } catch {
       Alert.alert("Error", "No se pudieron cargar las estadísticas.");
     } finally {

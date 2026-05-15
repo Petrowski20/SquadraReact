@@ -52,10 +52,7 @@
   "registerLink": "Sign up",
   "errorEmail": "Please enter a valid email format (e.g. email@domain.com)",
   "errorPassword": "Password is required.",
-  "errorCredentials": "Incorrect credentials. Please check your email and password.",
-  "errorGoogle": "Error connecting to Google. Please try again.",
-  "continueWithGoogle": "Continue with Google",
-  "or": "or"
+  "errorCredentials": "Incorrect credentials. Please check your email and password."
 },
 "forgotPassword": {
   "title": "Reset password",
@@ -181,7 +178,7 @@
 "myClub": {
   "invitationCode": "Invitation code",
   "copy": "Copy",
-  "staff": "Technical staff",
+  "staff": "Coaching staff",
   "squad": "Squad",
   "teamSelector": "Team",
   "gender_male": "Male",
@@ -251,13 +248,38 @@
   "away": "Away",
   "matchDay": "Matchday",
   "result": "Result",
-  "noEvents": "No events this month"
+  "noEvents": "No events this month",
+  "friendly": "Friendly",
+  "league": "League",
+  "cup": "Cup",
+  "tournament": "Tournament",
+  "other": "Match"
 },
 "calendar": {
   "title": "Calendar",
   "match": "Match",
-  "training": "Training"
+  "training": "Training",
+  "season": "Season",
+  "schedules": "Schedules",
+  "tabCalendar": "📅 Calendar",
+  "tabList": "📋 List",
+  "all": "All",
+  "matchLegend": "Match",
+  "trainLegend": "Training",
+  "emptyAll": "No events scheduled this month.",
+  "emptyMatches": "No matches scheduled this month.",
+  "emptyTrainings": "No trainings scheduled this month.",
+  "fieldPending": "Field to be confirmed",
+  "home": "🏠 Home",
+  "away": "✈️ Away",
+  "startMatch": "🟢 Start Match",
+  "viewStats": "📊 View/Edit Stats",
+  "loading": "Loading events...",
+  "matchesFilter": "Matches",
+  "trainingsFilter": "Trainings"
 },
+"months": ["January","February","March","April","May","June","July","August","September","October","November","December"],
+"days": ["Mo","Tu","We","Th","Fr","Sa","Su"],
 "coachManagement": {
   "title": "Management",
   "createEvent": "+ Create training / match",
@@ -292,7 +314,23 @@
   "createOpponentPlaceholder": "Opponent team name",
   "createField": "Field",
   "createFieldPlaceholder": "Field name",
-  "createSave": "Create event"
+  "createSave": "Create event",
+  "coachTitle": "Coach",
+  "tab_attendance": "ATTENDANCE",
+  "tab_callups": "CALLUPS",
+  "tab_stats": "STATS",
+  "tab_fines": "FINES",
+  "newFine": "+ New fine",
+  "noFines": "No fines registered.",
+  "newFineTitle": "New fine",
+  "fineSelectPlayer": "Select player",
+  "fineCreate": "Create fine",
+  "noStats": "No stats recorded this season.",
+  "statGoals": "Goals",
+  "statAssists": "Assist.",
+  "statYellow": "Yellows",
+  "statRed": "Reds",
+  "statMinutes": "Minutes"
 },
 "presidentManagement": {
   "title": "Management",
@@ -353,7 +391,11 @@
   "seasonSave": "Create season",
   "activate": "Activate",
   "deactivate": "Deactivate",
-  "active": "Active"
+  "active": "Active",
+  "adminTitle": "Administration",
+  "deleteTeam": "Delete",
+  "tab_teams": "Teams",
+  "newFeeTitle": "New Fee"
 },
 "nav": {
   "home": "Home",
@@ -393,7 +435,9 @@
   "pwErrorMismatch": "Passwords do not match",
   "pwSuccess": "Password updated successfully",
   "pwError": "Error changing password",
-  "unknownUser": "User"
+  "unknownUser": "User",
+  "linkedPlayer": "Linked player",
+  "linkedPlayers": "Linked players"
 },
 "categories": {
   "prebenjamin": "Prebenjamín (U8)",
@@ -426,7 +470,8 @@
   "inactiveSection": "Inactive",
   "emptyNotice": "The club has not registered any training fields yet",
   "addFieldTitle": "📍 Add field",
-  "photoUrlLabel": "Field photo"
+  "photoUrlLabel": "Field photo",
+  "delete": "🗑 Delete"
 },
 "gallery": {
   "emptyTitle": "No photos yet",

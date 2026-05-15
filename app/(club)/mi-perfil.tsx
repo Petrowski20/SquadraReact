@@ -1,10 +1,11 @@
 import * as ImageManipulator from 'expo-image-manipulator'
 import * as ImagePicker from 'expo-image-picker'
 import { router } from 'expo-router'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ActivityIndicator, Image, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View, Modal, TextInput } from 'react-native'
 import ScreenContainer from '../../components/ScreenContainer'
+import { apiFetch } from '../../lib/api'
 import i18n from '../../lib/i18n'
 import { useAuthStore } from '../../lib/store'
 import { useTheme } from '../../lib/useTheme'
@@ -83,9 +84,19 @@ const [pwModal, setPwModal] = useState(false);
   const token = useAuthStore((s: any) => s.token)
   const themeMode = useAuthStore((s: any) => s.themeMode)
   const language = useAuthStore((s: any) => s.language)
+  const activeRole = useAuthStore((s: any) => s.activeRole)
   const setThemeMode = useAuthStore((s: any) => s.setThemeMode)
   const setLanguage = useAuthStore((s: any) => s.setLanguage)
   const [uploading, setUploading] = useState(false)
+  const [linkedPlayers, setLinkedPlayers] = useState<any[]>([])
+
+  useEffect(() => {
+    if (activeRole !== 'RELATIVE') return
+    apiFetch('/api/profile/family-links')
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setLinkedPlayers)
+      .catch(() => {})
+  }, [activeRole])
 
   const handleChangePassword = async () => {
     setPwError('');
@@ -185,6 +196,34 @@ const [pwModal, setPwModal] = useState(false);
             c={c}
           />
         </View>
+
+        {/* Jugadores vinculados (solo para RELATIVE) */}
+        {activeRole === 'RELATIVE' && linkedPlayers.length > 0 && (
+          <View style={[styles.card, { backgroundColor: c.input, borderColor: c.bordeInput }]}>
+            <Text style={[styles.cardTitle, { color: c.subtexto }]}>
+              👨‍👧 {linkedPlayers.length === 1 ? t('profile.linkedPlayer') : t('profile.linkedPlayers')}
+            </Text>
+            {linkedPlayers.map((player) => (
+              <View key={player.playerId} style={styles.playerRow}>
+                <View style={[styles.playerAvatar, { backgroundColor: `${c.boton}20` }]}>
+                  <Text style={{ color: c.boton, fontWeight: 'bold' }}>
+                    {player.firstName.charAt(0)}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.playerName, { color: c.texto }]}>
+                    {player.firstName} {player.lastName}
+                  </Text>
+                  {(player.category || player.suffix) && (
+                    <Text style={[styles.playerTeam, { color: c.subtexto }]}>
+                      {[player.category, player.suffix].filter(Boolean).join(' ')}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* Selector de idioma */}
         <View style={[styles.card, { backgroundColor: c.input, borderColor: c.bordeInput }]}>
@@ -397,4 +436,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
   },
+  playerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
+  playerAvatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  playerName: { fontSize: 15, fontWeight: '600' },
+  playerTeam: { fontSize: 13, marginTop: 2 },
 })

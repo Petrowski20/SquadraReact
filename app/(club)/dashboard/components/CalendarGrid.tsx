@@ -6,11 +6,13 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "../../../../lib/useTheme";
-import { DIAS_SEMANA, useDashboard } from "../context/DashboardContext";
+import { useDashboard } from "../context/DashboardContext";
 
 export default function CalendarGrid() {
   const c = useTheme();
+  const { t } = useTranslation();
   const {
     year,
     month,
@@ -113,9 +115,9 @@ export default function CalendarGrid() {
     <View style={{ paddingHorizontal: 14 }}>
       <View style={[styles.calendarWrapper, { borderColor: c.bordeInput }]}>
         <View style={styles.weekRow}>
-          {DIAS_SEMANA.map((d) => (
-            <Text key={d} style={[styles.weekDayText, { color: c.subtexto }]}>
-              {d}
+          {[0,1,2,3,4,5,6].map((i) => (
+            <Text key={i} style={[styles.weekDayText, { color: c.subtexto }]}>
+              {t(`days.${i}`)}
             </Text>
           ))}
         </View>
@@ -132,11 +134,11 @@ export default function CalendarGrid() {
       <View style={styles.legendRow}>
         <View style={styles.legendItem}>
           <View style={[styles.dot, { backgroundColor: "#f97316" }]} />
-          <Text style={[styles.legendText, { color: c.subtexto }]}>Partido</Text>
+          <Text style={[styles.legendText, { color: c.subtexto }]}>{t('calendar.matchLegend')}</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.dot, { backgroundColor: "#3b82f6" }]} />
-          <Text style={[styles.legendText, { color: c.subtexto }]}>Entreno</Text>
+          <Text style={[styles.legendText, { color: c.subtexto }]}>{t('calendar.trainLegend')}</Text>
         </View>
       </View>
     </View>

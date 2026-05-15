@@ -7,8 +7,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "../../../../lib/useTheme";
-import { MESES, useDashboard } from "../context/DashboardContext";
+import { useDashboard } from "../context/DashboardContext";
 
 interface CalendarHeaderProps {
   /** false cuando el componente se renderiza debajo de otro header (ej: tab bar
@@ -18,6 +19,7 @@ interface CalendarHeaderProps {
 
 export default function CalendarHeader({ nativeTopPad = true }: CalendarHeaderProps) {
   const c = useTheme();
+  const { t } = useTranslation();
   const {
     month,
     year,
@@ -47,10 +49,10 @@ export default function CalendarHeader({ nativeTopPad = true }: CalendarHeaderPr
         >
           <View>
             <Text style={[styles.headerTitle, { color: c.texto }]}>
-              Calendario
+              {t('calendar.title')}
             </Text>
             <Text style={[styles.headerSub, { color: c.subtexto }]}>
-              Temporada {currentSeasonLabel}
+              {t('calendar.season')} {currentSeasonLabel}
             </Text>
           </View>
           <View style={{ flexDirection: "row", gap: 8 }}>
@@ -110,7 +112,7 @@ export default function CalendarHeader({ nativeTopPad = true }: CalendarHeaderPr
                   { color: !selectedTeamId ? c.boton : c.subtexto },
                 ]}
               >
-                Todos
+                {t('calendar.all')}
               </Text>
             </TouchableOpacity>
             {teams.map((t) => (
@@ -146,7 +148,7 @@ export default function CalendarHeader({ nativeTopPad = true }: CalendarHeaderPr
             <Text style={[styles.navBtnText, { color: c.boton }]}>‹</Text>
           </TouchableOpacity>
           <Text style={[styles.monthText, { color: c.texto }]}>
-            {MESES[month]} {year}
+            {t(`months.${month}`)} {year}
           </Text>
           <TouchableOpacity onPress={goToNextMonth}>
             <Text style={[styles.navBtnText, { color: c.boton }]}>›</Text>

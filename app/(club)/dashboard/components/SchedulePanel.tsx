@@ -15,11 +15,11 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "../../../../lib/useTheme";
 import {
   CalendarEvent,
   MATCH_TYPE_DISPLAY,
-  formatSelectedDate,
   toDateString,
   useDashboard,
 } from "../context/DashboardContext";
@@ -65,6 +65,7 @@ const EventCard = React.memo(function EventCard({
 }) {
   const c = useTheme();
   const router = useRouter();
+  const { t } = useTranslation();
   const isMatch = event.type === "MATCH";
   const borderColor = isMatch ? "#16a34a" : "#3b82f6";
   const isHome = parseIsHome(event);
@@ -120,14 +121,14 @@ const EventCard = React.memo(function EventCard({
         <Text
           style={[styles.eventoText, { color: c.subtexto, marginTop: 4 }]}
         >
-          📍 Campo por confirmar
+          📍 {t('calendar.fieldPending')}
         </Text>
       )}
 
       {/* Badges de partido */}
       {isMatch ? (
         <View style={styles.badgesRow}>
-          {matchDisplay ? (
+          {matchDisplay && event.matchType ? (
             <View
               style={[
                 styles.badge,
@@ -135,7 +136,7 @@ const EventCard = React.memo(function EventCard({
               ]}
             >
               <Text style={[styles.badgeText, { color: "#f59e0b" }]}>
-                {matchDisplay.badge}
+                {t(`schedule.${event.matchType.toLowerCase()}`).toUpperCase()}
               </Text>
             </View>
           ) : null}
@@ -150,7 +151,7 @@ const EventCard = React.memo(function EventCard({
               ]}
             >
               <Text style={[styles.badgeText, { color: c.boton }]}>
-                {isHome ? "🏠 Local" : "✈️ Visitante"}
+                {isHome ? t('calendar.home') : t('calendar.away')}
               </Text>
             </View>
           ) : null}
@@ -179,7 +180,7 @@ const EventCard = React.memo(function EventCard({
                 router.push(`/(club)/live-match/${event.id}?mode=LIVE` as any)
               }
             >
-              <Text style={styles.liveBtnText}>🟢 Iniciar Partido</Text>
+              <Text style={styles.liveBtnText}>{t('calendar.startMatch')}</Text>
             </TouchableOpacity>
           )}
           <TouchableOpacity
@@ -199,7 +200,7 @@ const EventCard = React.memo(function EventCard({
                 { color: matchButtonMode === "both" ? "#6b7280" : "#fff" },
               ]}
             >
-              📊 Ver/Editar Estadísticas
+              {t('calendar.viewStats')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -215,6 +216,7 @@ const VIEWABILITY_CONFIG = { itemVisiblePercentThreshold: 50 };
 
 export default function SchedulePanel() {
   const c = useTheme();
+  const { t, i18n } = useTranslation();
   const {
     events,
     selectedDate,
@@ -376,16 +378,20 @@ export default function SchedulePanel() {
   // ─── Render helpers ───────────────────────────────────────────────────────
 
   const renderSectionHeader = useCallback(
-    ({ section }: { section: EventSection }) => (
-      <View
-        style={[styles.sectionHeader, { backgroundColor: c.fondo }]}
-      >
-        <Text style={[styles.sectionTitle, { color: c.texto }]}>
-          {formatSelectedDate(section.title)}
-        </Text>
-      </View>
-    ),
-    [c.fondo, c.texto],
+    ({ section }: { section: EventSection }) => {
+      const [y, m, d] = section.title.split('-').map(Number);
+      const date = new Date(y, m - 1, d);
+      const locale = i18n.language === 'en' ? 'en-GB' : 'es-ES';
+      const label = date.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' });
+      return (
+        <View style={[styles.sectionHeader, { backgroundColor: c.fondo }]}>
+          <Text style={[styles.sectionTitle, { color: c.texto }]}>
+            {label}
+          </Text>
+        </View>
+      );
+    },
+    [c.fondo, c.texto, i18n.language],
   );
 
   const renderItem = useCallback(
@@ -428,12 +434,12 @@ export default function SchedulePanel() {
         <Text style={{ fontSize: 30, marginBottom: 8 }}>📅</Text>
         <Text style={{ color: c.subtexto, textAlign: "center", fontSize: 15 }}>
           {loading
-            ? "Cargando eventos..."
+            ? t('calendar.loading')
             : filtroTipo === "TODOS"
-              ? "No hay eventos programados este mes."
+              ? t('calendar.emptyAll')
               : filtroTipo === "MATCH"
-                ? "No hay partidos programados este mes."
-                : "No hay entrenamientos programados este mes."}
+                ? t('calendar.emptyMatches')
+                : t('calendar.emptyTrainings')}
         </Text>
       </View>
     ),
@@ -448,9 +454,9 @@ export default function SchedulePanel() {
       <View style={[styles.tabBar, { borderBottomColor: c.bordeInput }]}>
         {(
           [
-            { key: "TODOS", label: "Todos" },
-            { key: "MATCH", label: "Partidos" },
-            { key: "TRAINING", label: "Entrenos" },
+            { key: "TODOS", label: t('calendar.all') },
+            { key: "MATCH", label: t('calendar.matchesFilter') },
+            { key: "TRAINING", label: t('calendar.trainingsFilter') },
           ] as { key: FiltroTipo; label: string }[]
         ).map(({ key, label }) => (
           <TouchableOpacity

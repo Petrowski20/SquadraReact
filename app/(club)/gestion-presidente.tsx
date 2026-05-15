@@ -1,6 +1,7 @@
 import React, { useCallback, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "../../lib/useTheme";
 import { useAuthStore } from "../../lib/store";
 
@@ -13,6 +14,7 @@ type Tab = "SOLICITUDES" | "CUOTAS" | "EQUIPOS";
 
 export default function GestionPresidente() {
   const c = useTheme();
+  const { t } = useTranslation();
   const { activeSeasonName } = useAuthStore();
   const seasonLabel = activeSeasonName || "24-25";
 
@@ -37,10 +39,10 @@ export default function GestionPresidente() {
       {/* Cabecera */}
       <View style={{ padding: 24, paddingTop: 60, paddingBottom: 10 }}>
         <Text style={{ fontSize: 24, fontWeight: "bold", color: c.texto, marginBottom: 4 }}>
-          {"Administración"}
+          {t('presidentManagement.adminTitle')}
         </Text>
         <Text style={{ fontSize: 14, fontWeight: "600", color: c.subtexto }}>
-          {`Temporada ${seasonLabel}`}
+          {t('calendar.season')} {seasonLabel}
         </Text>
       </View>
 
@@ -69,7 +71,7 @@ export default function GestionPresidente() {
                 color: activeTab === tab ? c.texto : c.subtexto,
               }}
             >
-              {tab === "SOLICITUDES" ? "📩 Peticiones" : tab === "CUOTAS" ? "💳 Cuotas" : "🏆 Equipos"}
+              {tab === "SOLICITUDES" ? `📩 ${t('presidentManagement.tab_requests')}` : tab === "CUOTAS" ? `💳 ${t('presidentManagement.tab_fees')}` : `🏆 ${t('presidentManagement.tab_teams')}`}
             </Text>
           </TouchableOpacity>
         ))}
