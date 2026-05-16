@@ -244,8 +244,7 @@ export default function MiClub() {
 
 const sortedStaff = useMemo(() => {
   const raw: any[] = data?.staff ?? [];
-  const list = Array.from(new Map(raw.map((s) => [s.id, s])).values());
-  return list.sort((a, b) => {
+  return [...raw].sort((a, b) => {
     let result = 0;
     if (staffSort.key === "ROLE") {
       result = (STAFF_ROL_ORDEN[a.staffRole] ?? 99) - (STAFF_ROL_ORDEN[b.staffRole] ?? 99);

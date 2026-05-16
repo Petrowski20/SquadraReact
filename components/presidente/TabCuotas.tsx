@@ -1,5 +1,5 @@
 import DateTimePicker from "@react-native-community/datetimepicker";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ActivityIndicator, Alert, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { apiFetch } from "../../lib/api";
@@ -24,6 +24,9 @@ export default function TabCuotas() {
   const { activeClubId: clubId, activeSeasonName } = useAuthStore();
   const seasonLabel = activeSeasonName || "24-25";
 
+  // Ref para el seasonLabel real obtenido del backend (equipos), evita el desajuste con el store
+  const slRef = useRef<string>(seasonLabel);
+
   const [fees, setFees] = useState<FeeWithPayments[]>([]);
   const [feesLoading, setFeesLoading] = useState(false);
   const [feesPage, setFeesPage] = useState(0);
@@ -34,33 +37,44 @@ export default function TabCuotas() {
   const [createFeeModal, setCreateFeeModal] = useState(false);
   const [feeForm, setFeeForm] = useState<{ teamId: number | "ALL"; concept?: string; amount?: string; dueDate?: string }>({ teamId: "ALL" });
   const [feeError, setFeeError] = useState("");
-  
+
   const [showDatePicker, setShowDatePicker] = useState(false);
   const now = new Date();
   const [calYear, setCalYear] = useState(now.getFullYear());
   const [calMonth, setCalMonth] = useState(now.getMonth());
 
-  const fetchTeams = useCallback(async () => {
-    try {
-      const res = await apiFetch(`/api/president/club/${clubId}/teams`);
-      setTeams(await res.json());
-    } catch {}
-  }, [clubId]);
-
   const fetchFees = useCallback(async (page: number) => {
     setFeesLoading(true);
     try {
-      const res = await apiFetch(`/api/president/fees?clubId=${clubId}&seasonLabel=${seasonLabel}&page=${page}&size=15`);
+      const res = await apiFetch(`/api/president/fees?clubId=${clubId}&seasonLabel=${slRef.current}&page=${page}&size=15`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      const items = data.content ?? [];
-      setFees((prev) => (page === 0 ? items : [...prev, ...items]));
-      setFeesHasMore(!data.last);
+      const items: FeeWithPayments[] = Array.isArray(data) ? data : (data.content ?? []);
+      const hasMore = Array.isArray(data) ? false : !data.last;
+      const normalized = items.map((f) => ({ ...f, payments: f.payments ?? [] }));
+      setFees((prev) => (page === 0 ? normalized : [...prev, ...normalized]));
+      setFeesHasMore(hasMore);
       setFeesPage(page);
-    } catch { Alert.alert("Error", "No se cargaron las cuotas."); }
+    } catch {
+      Alert.alert("Error", "No se cargaron las cuotas.");
+    }
     finally { setFeesLoading(false); }
-  }, [clubId, seasonLabel]);
+  }, [clubId]);
 
-  useEffect(() => { fetchTeams(); fetchFees(0); }, [fetchTeams, fetchFees]);
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const res = await apiFetch(`/api/president/club/${clubId}/teams`);
+        if (res.ok) {
+          const data: Team[] = await res.json();
+          setTeams(data);
+          if (data.length > 0) slRef.current = data[0].seasonLabel;
+        }
+      } catch {}
+      fetchFees(0);
+    };
+    init();
+  }, [clubId, fetchFees]);
 
   const handleCreateFee = async () => {
     setFeeError("");
@@ -90,20 +104,16 @@ export default function TabCuotas() {
     try {
       let created = 0;
       for (const tid of targetTeamIds) {
-        const res = await apiFetch(`/api/president/fees?clubId=${clubId}`, {
+        const res = await apiFetch(`/api/president/fees?clubId=${clubId}&seasonLabel=${slRef.current}`, {
           method: "POST",
           body: JSON.stringify({ teamId: tid, concept: feeForm.concept.trim(), amount: parsedAmount, dueDate: feeForm.dueDate }),
         });
-        if (res.ok) {
-          const data: FeeWithPayments = await res.json();
-          const t = teams.find((x) => x.id === tid);
-          if (t) data.teamName = `${t.category} ${t.suffix}`;
-          setFees((prev) => [data, ...prev]);
-          created++;
-        }
+        if (res.ok) created++;
       }
       if (created > 0) {
-        setCreateFeeModal(false); setFeeForm({ teamId: "ALL" });
+        setCreateFeeModal(false);
+        setFeeForm({ teamId: "ALL" });
+        await fetchFees(0);
         Alert.alert("Éxito", feeForm.teamId === "ALL" ? `Cuotas generadas para ${created} equipo(s).` : "Cuota generada.");
       } else { Alert.alert("Error", "El servidor rechazó la creación."); }
     } catch { Alert.alert("Error", "Problema de conexión."); }
@@ -163,7 +173,7 @@ export default function TabCuotas() {
 
       {fees.map((f) => {
         let paid = 0; let pending = 0; let overdue = 0;
-        f.payments.forEach((p) => {
+        (f.payments ?? []).forEach((p) => {
           const st = computedStatus(p.status, f.dueDate);
           if (st === "PAID") paid++; else if (st === "PENDING") pending++; else overdue++;
         });

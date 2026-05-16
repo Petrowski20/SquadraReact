@@ -31,6 +31,8 @@ export default function TabEquipos() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [createTeamModal, setCreateTeamModal] = useState(false);
   const [teamForm, setTeamForm] = useState<Partial<{ category: string; gender: TeamGender; suffix: string }>>({ gender: "MALE" });
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [deleteErrorModal, setDeleteErrorModal] = useState(false);
 
   const fetchTeams = useCallback(async () => {
     try {
@@ -55,25 +57,20 @@ export default function TabEquipos() {
     } catch { Alert.alert("Error", "No se pudo crear el equipo."); }
   };
 
-  const handleDeleteTeam = (teamId: number) => {
-    Alert.alert("Eliminar equipo", "¿Seguro que quieres eliminar este equipo?", [
-      { text: "Cancelar", style: "cancel" },
-      {
-        text: "Eliminar", style: "destructive",
-        onPress: async () => {
-          try {
-            const res = await apiFetch(`/api/president/teams/${teamId}?clubId=${clubId}`, { method: "DELETE" });
-            if (res.ok) {
-              setTeams((prev) => prev.filter((t) => t.id !== teamId));
-            } else {
-              Alert.alert("No se puede eliminar", "No puedes borrar un equipo que tiene jugadores o eventos asignados.");
-            }
-          } catch {
-            Alert.alert("Error de red", "No se pudo conectar con el servidor.");
-          }
-        },
-      },
-    ]);
+  const handleDeleteTeam = async () => {
+    if (deleteConfirmId === null) return;
+    try {
+      const res = await apiFetch(`/api/president/teams/${deleteConfirmId}?clubId=${clubId}`, { method: "DELETE" });
+      if (res.ok) {
+        setTeams((prev) => prev.filter((team) => team.id !== deleteConfirmId));
+      } else {
+        setDeleteErrorModal(true);
+      }
+    } catch {
+      Alert.alert("Error de red", "No se pudo conectar con el servidor.");
+    } finally {
+      setDeleteConfirmId(null);
+    }
   };
 
   return (
@@ -97,12 +94,44 @@ export default function TabEquipos() {
               <Text style={[styles.cardTitle, { color: c.texto }]}>{`${catLabel} · ${team.gender === "MALE" ? t('myClub.gender_male') : team.gender === "FEMALE" ? t('myClub.gender_female') : t('myClub.gender_mixed')} · ${team.suffix}`}</Text>
               <Text style={{ color: c.subtexto, fontSize: 12, marginTop: 4 }}>{`${t('calendar.season')} ${team.seasonLabel}`}</Text>
             </View>
-            <TouchableOpacity onPress={() => handleDeleteTeam(team.id)}>
+            <TouchableOpacity onPress={() => setDeleteConfirmId(team.id)}>
               <Text style={{ color: "#DC2626", fontWeight: "bold", paddingHorizontal: 8 }}>{t('presidentManagement.deleteTeam')}</Text>
             </TouchableOpacity>
           </View>
         );
       })}
+
+      {/* Modal confirmación borrar */}
+      <Modal visible={deleteConfirmId !== null} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.confirmBox, { backgroundColor: c.fondo }]}>
+            <Text style={[styles.modalTitle, { color: c.texto, textAlign: "center" }]}>{"Eliminar equipo"}</Text>
+            <Text style={{ color: c.subtexto, textAlign: "center", marginBottom: 24 }}>{"¿Seguro que quieres eliminar este equipo?"}</Text>
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <TouchableOpacity style={[styles.btnMain, { backgroundColor: c.input, flex: 1, borderWidth: 1, borderColor: c.bordeInput }]} onPress={() => setDeleteConfirmId(null)}>
+                <Text style={{ color: c.texto, fontWeight: "bold" }}>{"Cancelar"}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.btnMain, { backgroundColor: "#DC2626", flex: 1 }]} onPress={handleDeleteTeam}>
+                <Text style={{ color: "#fff", fontWeight: "bold" }}>{"Eliminar"}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal error jugadores activos */}
+      <Modal visible={deleteErrorModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.confirmBox, { backgroundColor: c.fondo }]}>
+            <Text style={{ fontSize: 32, textAlign: "center", marginBottom: 8 }}>{"⚠️"}</Text>
+            <Text style={[styles.modalTitle, { color: c.texto, textAlign: "center" }]}>{"No se puede eliminar"}</Text>
+            <Text style={{ color: c.subtexto, textAlign: "center", marginBottom: 24 }}>{"Este equipo tiene jugadores activos. Elimina o mueve los jugadores antes de borrar el equipo."}</Text>
+            <TouchableOpacity style={[styles.btnMain, { backgroundColor: c.boton }]} onPress={() => setDeleteErrorModal(false)}>
+              <Text style={{ color: "#fff", fontWeight: "bold" }}>{"Entendido"}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={createTeamModal} transparent animationType="slide">
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
@@ -160,4 +189,5 @@ const styles = StyleSheet.create({
   modalBox: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
   modalTitle: { fontSize: 20, fontWeight: "bold", marginBottom: 20 },
   emptyBox: { borderRadius: 16, borderWidth: 1, padding: 30, marginBottom: 12, alignItems: "center" },
+  confirmBox: { borderRadius: 20, padding: 24, marginHorizontal: 32, width: "80%" },
 });

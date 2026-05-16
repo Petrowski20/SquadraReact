@@ -172,6 +172,7 @@ export default function GestionCoach() {
     storeTeamId ?? null,
   );
   const [teams, setTeams] = useState<{ id: number; label: string }[]>([]);
+  const showTeamPicker = isPresident || teams.length > 1;
 
   const [saving, setSaving] = useState(false);
 
@@ -209,22 +210,62 @@ export default function GestionCoach() {
 
   // ── FETCH ──────────────────────────────────────────────────────────────────
 
-  // Carga la lista de equipos del club si el usuario es presidente
+  // Carga la lista de equipos del club:
+  //   - Presidente: todos los equipos activos del club
+  //   - Coach: solo los equipos a los que está asignado (filtrando membresías)
   useEffect(() => {
-    if (!isPresident || !clubId) return;
-    apiFetch(`/api/club/equipos/${clubId}`)
-      .then((r) => r.json())
-      .then((data: any[]) => {
-        const mapped = data
-          .filter((t: any) => t.isActive)
-          .map((t: any) => ({
+    if (!clubId) return;
+    const load = async () => {
+      try {
+        const allTeamsRes = await apiFetch(`/api/club/equipos/${clubId}`);
+        const allTeams: any[] = await allTeamsRes.json();
+        const active = allTeams.filter((t: any) => t.isActive);
+
+        if (isPresident) {
+          const mapped = active.map((t: any) => ({
             id: t.id,
             label: `${t.category}${t.suffix ? " " + t.suffix : ""}`,
           }));
-        setTeams(mapped);
-        if (!localTeamId && mapped.length > 0) setLocalTeamId(mapped[0].id);
-      })
-      .catch(() => {});
+          setTeams(mapped);
+          if (!localTeamId && mapped.length > 0) setLocalTeamId(mapped[0].id);
+        } else {
+          // Para coaches: cruzar los equipos del club con sus membresías
+          const membershipsRes = await apiFetch("/api/clubs/my-memberships");
+          const memberships: any[] = membershipsRes.ok
+            ? await membershipsRes.json()
+            : [];
+          const coachTeamIds = new Set(
+            memberships
+              .filter(
+                (m: any) =>
+                  m.clubId === clubId &&
+                  (m.role === "COACH" || m.role === "coach"),
+              )
+              .map((m: any) => m.teamId)
+              .filter(Boolean),
+          );
+
+          if (coachTeamIds.size === 0 && storeTeamId) {
+            coachTeamIds.add(storeTeamId);
+          }
+
+          const mapped = active
+            .filter((t: any) => coachTeamIds.has(t.id))
+            .map((t: any) => ({
+              id: t.id,
+              label: `${t.category}${t.suffix ? " " + t.suffix : ""}`,
+            }));
+
+          if (mapped.length > 0) {
+            setTeams(mapped);
+            if (!localTeamId || !coachTeamIds.has(localTeamId)) {
+              setLocalTeamId(mapped[0].id);
+            }
+          }
+        }
+      } catch {}
+    };
+    load();
   }, [isPresident, clubId]);
 
   // Carga de eventos del equipo seleccionado
@@ -278,7 +319,8 @@ export default function GestionCoach() {
           `/api/teams/${localTeamId}/players?seasonLabel=${seasonLabel}&clubId=${clubId}`,
         );
         const data = await res.json();
-        setTeamPlayers(data);
+        console.log("Respuesta /players:", JSON.stringify(data)); 
+        setTeamPlayers(Array.isArray(data) ? data : (data.players ?? data.content ?? []));
       } catch (error) {
         console.error("Error cargando plantilla:", error);
       }
