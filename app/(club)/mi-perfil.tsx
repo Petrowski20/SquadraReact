@@ -179,14 +179,14 @@ const [pwModal, setPwModal] = useState(false);
             {profile?.photoUrl ? (
               <Image
                 source={{ uri: profile.photoUrl }}
-                style={[styles.avatar, { borderRadius: 20 }]}
+                style={[styles.avatar, { borderRadius: 28 }]}
               />
             ) : (
               <Text style={[styles.avatarText, { color: c.boton }]}>{initials}</Text>
             )}
 
             {uploading && (
-              <View style={[styles.overlay, { borderRadius: 20 }]}>
+              <View style={[styles.overlay, { borderRadius: 28 }]}>
                 <ActivityIndicator color={c.boton} />
               </View>
             )}
@@ -415,17 +415,17 @@ function Fila({ label, value, c }: { label: string; value: string; c: any }) {
 }
 
 const styles = StyleSheet.create({
-  scroll: { padding: 20, paddingBottom: 40, gap: 16 },
-  avatarWrapper: { alignItems: 'center', paddingVertical: 24, gap: 6 },
+  scroll: { paddingTop: 110, paddingHorizontal: 20, paddingBottom: 40, gap: 16 },
+  avatarWrapper: { alignItems: 'center', paddingTop: 8, paddingBottom: 16, gap: 6 },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
+    width: 110,
+    height: 110,
+    borderRadius: 28,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { fontSize: 34, fontWeight: 'bold' },
+  avatarText: { fontSize: 44, fontWeight: 'bold' },
   nombre: { fontSize: 20, fontWeight: '700' },
   email: { fontSize: 14 },
   card: {
