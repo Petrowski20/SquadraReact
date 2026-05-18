@@ -153,10 +153,24 @@ export default function Register() {
       });
 
       if (!response.ok) {
-        // Leemos el mensaje exacto que nos manda Java para mostrarlo
-        const errorText = await response.text();
         setIsLoading(false);
-        setErrorMessage(errorText || t("register.errorCreate"));
+        const errorText = await response.text();
+        let friendlyMessage = t("register.errorCreate", "Error al crear la cuenta. Inténtalo de nuevo.");
+        try {
+          const errorData = JSON.parse(errorText);
+          if (errorData.error_code === "email_exists") {
+            friendlyMessage = t("register.errorEmailExists", "Este correo ya está registrado. Prueba a iniciar sesión.");
+          } else if (errorData.msg) {
+            friendlyMessage = errorData.msg;
+          }
+        } catch {
+          if (errorText.includes("email_exists")) {
+            friendlyMessage = t("register.errorEmailExists", "Este correo ya está registrado. Prueba a iniciar sesión.");
+          } else if (errorText.includes("uq_profiles_documents") || errorText.includes("doc_type, doc_number")) {
+            friendlyMessage = t("register.errorDocExists", "Este documento de identidad ya está registrado.");
+          }
+        }
+        setErrorMessage(friendlyMessage);
         return;
       }
 

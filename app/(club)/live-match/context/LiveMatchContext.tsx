@@ -61,7 +61,6 @@ export const STAT_FIELDS: { label: string; field: keyof StatsEntry }[] = [
   { label: "Amarillas", field: "yellowCards" },
   { label: "Rojas", field: "redCards" },
   { label: "Minutos", field: "minutesPlayed" },
-  { label: "⏱️ Min", field: "minutesPlayed" },
 ];
 
 export const formatTime = (total: number) => {
