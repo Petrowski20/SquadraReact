@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, ScrollView, Modal, StyleSheet, ActivityIndicator, FlatList, Switch } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, Modal, StyleSheet, ActivityIndicator, FlatList, Switch, TextInput } from "react-native";
 import { apiFetch } from "../../lib/api";
 import { parseApiError } from "../../lib/helper";
 import { useAuthStore } from "../../lib/store";
@@ -63,11 +63,13 @@ export default function TabSolicitudes() {
   const [assignKinship, setAssignKinship] = useState<KinshipType>("FATHER");
   const [assignPlayerPosition, setAssignPlayerPosition] = useState<PlayerPosition>("MIDFIELDER");
   const [assignLinkedPlayerId, setAssignLinkedPlayerId] = useState<number | null>(null);
+  const [assignChildTeamId, setAssignChildTeamId] = useState<number | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalError, setModalError] = useState('');
   const [fetchError, setFetchError] = useState('');
   const [imageConsentEnabled, setImageConsentEnabled] = useState(false);
+  const [query, setQuery] = useState('');
 
   const [teams, setTeams] = useState<Team[]>([]);
   const [teamPlayers, setTeamPlayers] = useState<TeamPlayer[]>([]);
@@ -97,7 +99,8 @@ export default function TabSolicitudes() {
 
   useEffect(() => {
     if (assignRole === "RELATIVE" && assignTeamId) {
-      apiFetch(`/api/players?clubId=${clubId}&teamId=${assignTeamId}`)
+      setQuery('');
+      apiFetch(`/api/president/players?clubId=${clubId}&teamId=${assignTeamId}`)
         .then((res) => res.json())
         .then((data) => {
           const arr = data.content ?? data;
@@ -106,6 +109,7 @@ export default function TabSolicitudes() {
     } else {
       setTeamPlayers([]);
       setAssignLinkedPlayerId(null);
+      setQuery('');
     }
   }, [assignTeamId, assignRole, clubId]);
 
@@ -117,6 +121,8 @@ export default function TabSolicitudes() {
     setAssignRole(preRole);
     setAssignTeamId(null);
     setAssignLinkedPlayerId(null);
+    setAssignChildTeamId(null);
+    setQuery('');
     setImageConsentEnabled(false);
     setModalError('');
     setReviewModal(true);
@@ -153,7 +159,13 @@ export default function TabSolicitudes() {
         payload.staffRoleType = assignStaffRole;
       } else if (assignRole === "RELATIVE") {
         const childHasAccount = selectedRequest?.metadata?.childHasAccount;
-        if (childHasAccount !== false) {
+        if (childHasAccount === false) {
+          if (!assignChildTeamId) {
+            setModalError("Debes seleccionar un equipo para el nuevo jugador/a.");
+            return;
+          }
+          payload.teamId = assignChildTeamId;
+        } else {
           if (!assignLinkedPlayerId) {
             setModalError("Debes vincular un jugador/a existente.");
             return;
@@ -257,7 +269,7 @@ export default function TabSolicitudes() {
                   <Text style={[styles.inputLabel, { color: c.texto }]}>{"1. Rol a asignar"}</Text>
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
                     {ASSIGNABLE_ROLES.map((r) => (
-                      <TouchableOpacity key={r.value} onPress={() => { setAssignRole(r.value); setAssignTeamId(null); setAssignLinkedPlayerId(null); }} style={[styles.chip, assignRole === r.value ? { backgroundColor: c.boton } : { backgroundColor: c.input, borderWidth: 1, borderColor: c.bordeInput }]}>
+                      <TouchableOpacity key={r.value} onPress={() => { setAssignRole(r.value); setAssignTeamId(null); setAssignLinkedPlayerId(null); setAssignChildTeamId(null); setQuery(''); }} style={[styles.chip, assignRole === r.value ? { backgroundColor: c.boton } : { backgroundColor: c.input, borderWidth: 1, borderColor: c.bordeInput }]}>
                         <Text style={{ color: assignRole === r.value ? "#fff" : c.subtexto, fontSize: 12, fontWeight: "600" }}>{r.label}</Text>
                       </TouchableOpacity>
                     ))}
@@ -340,7 +352,15 @@ export default function TabSolicitudes() {
                               </Text>
                             )}
                           </View>
-                          <Text style={[styles.inputLabel, { color: c.texto, marginTop: 12 }]}>{"2. Parentesco"}</Text>
+                          <Text style={[styles.inputLabel, { color: c.texto, marginTop: 12 }]}>{"2. Equipo"}</Text>
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+                            {teams.map((t) => (
+                              <TouchableOpacity key={t.id} onPress={() => setAssignChildTeamId(t.id)} style={[styles.chip, assignChildTeamId === t.id ? { backgroundColor: c.boton } : { backgroundColor: c.input, borderWidth: 1, borderColor: c.bordeInput }]}>
+                                <Text style={{ color: assignChildTeamId === t.id ? "#fff" : c.subtexto, fontSize: 12 }}>{`${CATEGORY_LABEL[t.category] ?? t.category} ${t.suffix}`}</Text>
+                              </TouchableOpacity>
+                            ))}
+                          </ScrollView>
+                          <Text style={[styles.inputLabel, { color: c.texto }]}>{"3. Parentesco"}</Text>
                           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
                             {KINSHIP_TYPES.map((k) => (
                               <TouchableOpacity key={k.value} onPress={() => setAssignKinship(k.value)} style={[styles.chip, assignKinship === k.value ? { backgroundColor: c.boton } : { backgroundColor: c.input, borderWidth: 1, borderColor: c.bordeInput }]}>
@@ -368,20 +388,58 @@ export default function TabSolicitudes() {
                               </TouchableOpacity>
                             ))}
                           </View>
-                          {assignTeamId && teamPlayers.length > 0 && (
-                            <View>
+                          {assignTeamId && (
+                            <View style={{ marginBottom: 16 }}>
                               <Text style={[styles.inputLabel, { color: c.texto }]}>{"4. Vincular a jugador/a"}</Text>
-                              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-                                {teamPlayers.map((p) => (
-                                  <TouchableOpacity key={p.id} onPress={() => setAssignLinkedPlayerId(p.id)} style={[styles.chip, assignLinkedPlayerId === p.id ? { backgroundColor: c.boton } : { backgroundColor: c.input, borderWidth: 1, borderColor: c.bordeInput }]}>
-                                    <Text style={{ color: assignLinkedPlayerId === p.id ? "#fff" : c.subtexto, fontSize: 12 }}>{p.firstName} {p.lastName || ""}</Text>
+
+                              {assignLinkedPlayerId ? (
+                                <View style={[styles.linkedBadge, { backgroundColor: `${c.boton}18`, borderColor: `${c.boton}40` }]}>
+                                  <Text style={{ flex: 1, color: c.boton, fontWeight: "600", fontSize: 13 }}>
+                                    {"Vinculado a: "}
+                                    {teamPlayers.find((p) => p.id === assignLinkedPlayerId)?.firstName}{" "}
+                                    {teamPlayers.find((p) => p.id === assignLinkedPlayerId)?.lastName ?? ""}
+                                  </Text>
+                                  <TouchableOpacity onPress={() => { setAssignLinkedPlayerId(null); setQuery(""); }}>
+                                    <Text style={{ color: c.subtexto, fontSize: 18, fontWeight: "700", lineHeight: 20 }}>{"✕"}</Text>
                                   </TouchableOpacity>
-                                ))}
-                              </ScrollView>
+                                </View>
+                              ) : (
+                                <View>
+                                  <TextInput
+                                    style={[styles.searchInput, { backgroundColor: c.input, borderColor: c.bordeInput, color: c.texto }]}
+                                    placeholder={"Escribe nombre o apellido (mín. 3 letras)..."}
+                                    placeholderTextColor={c.subtexto}
+                                    value={query}
+                                    onChangeText={setQuery}
+                                  />
+                                  {query.trim().length >= 3 && (() => {
+                                    const hits = teamPlayers.filter((p) =>
+                                      `${p.firstName} ${p.lastName ?? ""}`.toLowerCase().includes(query.trim().toLowerCase())
+                                    );
+                                    return hits.length > 0 ? (
+                                      <View style={[styles.dropdown, { borderColor: c.bordeInput }]}>
+                                        <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false} style={{ maxHeight: 180 }}>
+                                          {hits.map((p) => (
+                                            <TouchableOpacity
+                                              key={p.id}
+                                              style={[styles.dropdownItem, { borderBottomColor: c.bordeInput }]}
+                                              onPress={() => { setAssignLinkedPlayerId(p.id); setQuery(""); }}
+                                            >
+                                              <Text style={{ color: c.texto, fontSize: 13 }}>{p.firstName} {p.lastName ?? ""}</Text>
+                                            </TouchableOpacity>
+                                          ))}
+                                        </ScrollView>
+                                      </View>
+                                    ) : (
+                                      <Text style={{ color: c.subtexto, fontSize: 12, marginTop: 6, marginLeft: 4 }}>{"Sin coincidencias."}</Text>
+                                    );
+                                  })()}
+                                  {teamPlayers.length === 0 && (
+                                    <Text style={{ color: c.subtexto, fontSize: 12, marginTop: 6, marginLeft: 4 }}>{"No hay jugadores en ese equipo aún."}</Text>
+                                  )}
+                                </View>
+                              )}
                             </View>
-                          )}
-                          {assignTeamId && teamPlayers.length === 0 && (
-                            <Text style={{ color: c.subtexto, fontSize: 13, marginBottom: 16 }}>{"No hay jugadores en ese equipo aún."}</Text>
                           )}
                         </View>
                       )}
@@ -427,4 +485,8 @@ const styles = StyleSheet.create({
   infoBox: { borderRadius: 12, borderWidth: 1, padding: 12, marginBottom: 4 },
   errorBanner: { padding: 12, borderWidth: 1, borderRadius: 12, marginBottom: 12 },
   consentRow: { flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 12, borderWidth: 1, padding: 12, marginBottom: 16 },
+  searchInput: { borderWidth: 1, borderRadius: 10, padding: 10, fontSize: 13 },
+  dropdown: { borderWidth: 1, borderRadius: 10, marginTop: 4, overflow: "hidden" },
+  dropdownItem: { padding: 12, borderBottomWidth: 1 },
+  linkedBadge: { flexDirection: "row", alignItems: "center", gap: 10, borderRadius: 10, borderWidth: 1, padding: 10 },
 });
