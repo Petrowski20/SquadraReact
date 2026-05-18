@@ -19,6 +19,7 @@ export default function CalendarGrid() {
     events,
     loading,
     selectedDate,
+    selectedTeamId,
     setSelectedDate,
     setSelectedDayEvents,
     setDayModal,
@@ -41,6 +42,7 @@ export default function CalendarGrid() {
           const currentDate = dayCount;
           const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(currentDate).padStart(2, "0")}`;
           const dayEvents = events.filter((e) => {
+            if (selectedTeamId !== null && e.teamId !== selectedTeamId) return false;
             const d = new Date(e.startTime);
             return (
               d.getDate() === currentDate &&

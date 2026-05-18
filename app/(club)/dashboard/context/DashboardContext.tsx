@@ -257,7 +257,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
   // ─── Filters ────────────────────────────────────────────────────────────
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(
-    isRelative ? (myTeamId ?? null) : null,
+    myTeamId ?? null,
   );
 
   // ─── Loading ────────────────────────────────────────────────────────────
@@ -366,12 +366,12 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   }, [clubId, currentSeasonLabel, selectedTeamId, year, month]);
 
   const fetchTeams = useCallback(async () => {
-    if (!isPresident && !isCoach) return;
+    if (!clubId) return;
     try {
       const res = await apiFetch(`/api/club/equipos/${clubId}`);
       setTeams(await res.json());
     } catch {}
-  }, [clubId, isPresident, isCoach]);
+  }, [clubId]);
 
   const fetchFields = useCallback(async () => {
     if (!canCreate) return;
@@ -774,18 +774,61 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      setEvents((prev) => [...prev, ...nuevos]);
+      let savedCount = 0;
+      for (const evento of nuevos) {
+        try {
+          const eventDate = new Date(evento.startTime);
+          const sl = getSeasonLabel(eventDate.getFullYear(), eventDate.getMonth());
+          if (evento.type === "TRAINING") {
+            const res = await apiFetch(`/api/calendar/training?clubId=${clubId}`, {
+              method: "POST",
+              body: JSON.stringify({
+                teamId: evento.teamId,
+                startTime: evento.startTime,
+                endTime: evento.endTime || evento.startTime,
+                fieldId: evento.fieldId,
+                location: evento.fieldId ? null : evento.location || null,
+                notes: null,
+                seasonLabel: sl,
+              }),
+            });
+            if (res.ok) savedCount++;
+          } else {
+            const opponentName = evento.title.replace(/^(vs |@ )/i, "");
+            const isHome = !evento.title.toLowerCase().startsWith("@ ");
+            const res = await apiFetch(`/api/calendar/match?clubId=${clubId}`, {
+              method: "POST",
+              body: JSON.stringify({
+                teamId: evento.teamId,
+                opponentName,
+                matchDate: evento.startTime,
+                fieldId: evento.fieldId,
+                location: evento.fieldId ? null : evento.location || null,
+                isHome,
+                matchType: "OTHER",
+                seasonLabel: sl,
+              }),
+            });
+            if (res.ok) savedCount++;
+          }
+        } catch {
+          // Continuar con los demás eventos aunque uno falle
+        }
+      }
+
+      await fetchEvents();
+
       const linked = nuevos.filter((e) => e.fieldId).length;
 
       let msg: string;
       if (partidosOmitidos > 0 && linked > 0) {
-        msg = `Se han importado ${partidosAñadidos} partidos para el equipo seleccionado. Se omitieron ${partidosOmitidos} duplicados. ${linked} ubicación(es) enlazadas automáticamente.`;
+        msg = `Se han importado ${savedCount} eventos para el equipo seleccionado. Se omitieron ${partidosOmitidos} duplicados. ${linked} ubicación(es) enlazadas automáticamente.`;
       } else if (partidosOmitidos > 0) {
-        msg = `Se han importado ${partidosAñadidos} partidos para el equipo seleccionado. Se omitieron ${partidosOmitidos} duplicados.`;
+        msg = `Se han importado ${savedCount} eventos para el equipo seleccionado. Se omitieron ${partidosOmitidos} duplicados.`;
       } else if (linked > 0) {
-        msg = `Se han importado ${partidosAñadidos} partidos para el equipo seleccionado. ${linked} ubicación(es) enlazadas automáticamente.`;
+        msg = `Se han importado ${savedCount} eventos para el equipo seleccionado. ${linked} ubicación(es) enlazadas automáticamente.`;
       } else {
-        msg = `Se han importado ${partidosAñadidos} partidos para el equipo seleccionado.`;
+        msg = `Se han importado ${savedCount} eventos para el equipo seleccionado.`;
       }
       Alert.alert("Importación Completada", msg);
     } catch {

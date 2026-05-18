@@ -246,10 +246,10 @@ export default function SchedulePanel() {
 
   // ─── Secciones (agrupadas por día, filtradas por tipo) ────────────────────
   const sections = useMemo<EventSection[]>(() => {
-    const filtered =
-      filtroTipo === "TODOS"
-        ? events
-        : events.filter((e) => e.type === filtroTipo);
+    const filtered = events.filter((e) => {
+      if (selectedTeamId !== null && e.teamId !== selectedTeamId) return false;
+      return filtroTipo === "TODOS" || e.type === filtroTipo;
+    });
 
     // Orden cronológico dentro de cada día y entre días
     const sorted = [...filtered].sort(
@@ -266,7 +266,7 @@ export default function SchedulePanel() {
     }
 
     return Array.from(map.entries()).map(([title, data]) => ({ title, data }));
-  }, [events, filtroTipo]);
+  }, [events, filtroTipo, selectedTeamId]);
 
   // Mapa fecha → índice de sección para lookup O(1)
   const sectionIndexMap = useMemo<Map<string, number>>(() => {

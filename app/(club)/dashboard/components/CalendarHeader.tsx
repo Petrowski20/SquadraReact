@@ -25,7 +25,6 @@ export default function CalendarHeader({ nativeTopPad = true }: CalendarHeaderPr
     year,
     currentSeasonLabel,
     canCreate,
-    isPresident,
     teams,
     selectedTeamId,
     setSelectedTeamId,
@@ -95,8 +94,8 @@ export default function CalendarHeader({ nativeTopPad = true }: CalendarHeaderPr
         </View>
       </View>
 
-      {/* FILTROS PRESIDENTE */}
-      {isPresident && (
+      {/* FILTROS POR EQUIPO */}
+      {teams.length > 0 && (
         <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <TouchableOpacity
@@ -115,25 +114,25 @@ export default function CalendarHeader({ nativeTopPad = true }: CalendarHeaderPr
                 {t('calendar.all')}
               </Text>
             </TouchableOpacity>
-            {teams.map((t) => (
+            {teams.map((team) => (
               <TouchableOpacity
-                key={t.id}
+                key={team.id}
                 style={[
                   styles.chip,
                   {
                     backgroundColor:
-                      selectedTeamId === t.id ? `${c.boton}20` : c.input,
+                      selectedTeamId === team.id ? `${c.boton}20` : c.input,
                   },
                 ]}
-                onPress={() => setSelectedTeamId(t.id)}
+                onPress={() => setSelectedTeamId(team.id)}
               >
                 <Text
                   style={[
                     styles.chipText,
-                    { color: selectedTeamId === t.id ? c.boton : c.subtexto },
+                    { color: selectedTeamId === team.id ? c.boton : c.subtexto },
                   ]}
                 >
-                  {t.category} {t.suffix}
+                  {team.category} {team.suffix}
                 </Text>
               </TouchableOpacity>
             ))}
