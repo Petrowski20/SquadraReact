@@ -203,10 +203,18 @@ export default function GestionCoach() {
   const [fineReason, setFineReason] = useState("");
   const [fineAmount, setFineAmount] = useState("");
   const [fineError, setFineError] = useState("");
+  const [fineQuery, setFineQuery] = useState("");
 
   const [closeMatchModal, setCloseMatchModal] = useState(false);
   const [goalsFor, setGoalsFor] = useState("");
   const [goalsAgainst, setGoalsAgainst] = useState("");
+
+  const [confirmModal, setConfirmModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({ visible: false, title: "", message: "", onConfirm: () => {} });
 
   // ── FETCH ──────────────────────────────────────────────────────────────────
 
@@ -316,7 +324,7 @@ export default function GestionCoach() {
     const fetchPlayers = async () => {
       try {
         const res = await apiFetch(
-          `/api/teams/${localTeamId}/players?seasonLabel=${seasonLabel}&clubId=${clubId}`,
+          `/api/president/players?clubId=${clubId}&teamId=${localTeamId}`,
         );
         const data = await res.json();
         console.log("Respuesta /players:", JSON.stringify(data)); 
@@ -448,7 +456,7 @@ export default function GestionCoach() {
         `/api/coach/fines?clubId=${clubId}&teamId=${localTeamId}&seasonLabel=${seasonLabel}&page=${page}&size=20`,
       );
       const data = await res.json();
-      const newFines: Fine[] = data.content;
+      const newFines: Fine[] = data.content ?? [];
       setFines(page === 0 ? newFines : (prev) => [...prev, ...newFines]);
       setFinesHasMore(!data.last);
       setFinesPage(page);
@@ -560,23 +568,61 @@ export default function GestionCoach() {
       return;
     }
     try {
-      await apiFetch(`/api/coach/fines?clubId=${clubId}`, {
+      const res = await apiFetch(`/api/coach/fines?clubId=${clubId}`, {
         method: "POST",
         body: JSON.stringify({
           playerId: fineTarget.id,
           teamId: localTeamId,
           reason: fineReason,
           amount: parsedAmount,
+          seasonLabel,
         }),
       });
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        setFineError(`Error ${res.status}: ${body || "No se pudo crear la multa."}`);
+        return;
+      }
       setFineModal(false);
       setFineReason("");
       setFineAmount("");
       setFineTarget(null);
+      setFineQuery("");
       fetchFines(0);
     } catch {
       Alert.alert("Error", "No se pudo crear.");
     }
+  };
+
+  const handleMarkPaid = (fineId: number) => {
+    setConfirmModal({
+      visible: true,
+      title: "Marcar como pagada",
+      message: "¿Confirmas que esta multa ha sido pagada?",
+      onConfirm: async () => {
+        setConfirmModal((prev) => ({ ...prev, visible: false }));
+        const res = await apiFetch(`/api/coach/fines/${fineId}?clubId=${clubId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ status: "PAID" }),
+        });
+        if (res.ok) fetchFines(0);
+      },
+    });
+  };
+
+  const handleDeleteFine = (fineId: number) => {
+    setConfirmModal({
+      visible: true,
+      title: "Eliminar multa",
+      message: "¿Seguro que quieres eliminar esta multa? Esta acción no se puede deshacer.",
+      onConfirm: async () => {
+        setConfirmModal((prev) => ({ ...prev, visible: false }));
+        const res = await apiFetch(`/api/coach/fines/${fineId}?clubId=${clubId}`, {
+          method: "DELETE",
+        });
+        if (res.ok) fetchFines(0);
+      },
+    });
   };
 
   // ── RENDERS DE TABS ────────────────────────────────────────────────────────
@@ -927,8 +973,31 @@ export default function GestionCoach() {
             </View>
             <Text style={{ fontSize: 12, color: c.subtexto }}>{f.reason}</Text>
             <Text style={{ fontSize: 11, color: c.subtexto, opacity: 0.7 }}>
-              {f.issuedDate} · {f.status}
+              {f.issuedDate} · {t(`coachManagement.fineStatus_${f.status}` as any, { defaultValue: f.status })}
             </Text>
+            <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
+              <TouchableOpacity
+                disabled={f.status !== "PENDING"}
+                style={{
+                  backgroundColor: f.status === "PENDING" ? COLOR_EXITO : c.input,
+                  borderRadius: 6,
+                  paddingHorizontal: 10,
+                  paddingVertical: 5,
+                  opacity: f.status === "PENDING" ? 1 : 0.4,
+                }}
+                onPress={() => handleMarkPaid(f.id)}
+              >
+                <Text style={{ color: f.status === "PENDING" ? "#fff" : c.subtexto, fontSize: 12, fontWeight: "600" }}>
+                  {t('coachManagement.fineMarkPaid')}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ backgroundColor: COLOR_PELIGRO, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 5 }}
+                onPress={() => handleDeleteFine(f.id)}
+              >
+                <Text style={{ color: "#fff", fontSize: 12, fontWeight: "600" }}>Eliminar</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         ))
       )}
@@ -1179,59 +1248,54 @@ export default function GestionCoach() {
                 <Text style={[s.modalLabel, { color: c.subtexto }]}>
                   {t('coachManagement.fineSelectPlayer')}
                 </Text>
-                {/* Nuevo: ScrollView con los jugadores del equipo */}
-                <View
-                  style={[
-                    s.playerSelectorBox,
-                    { borderColor: c.bordeInput, backgroundColor: c.input },
-                  ]}
-                >
-                  {teamPlayers.length === 0 ? (
-                    <Text
-                      style={{
-                        padding: 12,
-                        color: c.subtexto,
-                        fontStyle: "italic",
-                      }}
-                    >
-                      Cargando plantilla o sin jugadores...
+                {fineTarget ? (
+                  <View style={[s.linkedBadge, { backgroundColor: `${c.boton}18`, borderColor: `${c.boton}40` }]}>
+                    <Text style={{ flex: 1, color: c.boton, fontWeight: "600", fontSize: 13 }}>
+                      {fineTarget.name}
                     </Text>
-                  ) : (
-                    <ScrollView nestedScrollEnabled={true}>
-                      {teamPlayers.map((p) => {
-                        const isSelected = fineTarget?.id === p.id;
-                        return (
-                          <TouchableOpacity
-                            key={p.id}
-                            style={[
-                              s.playerSelectorItem,
-                              {
-                                backgroundColor: isSelected
-                                  ? c.boton
-                                  : "transparent",
-                              },
-                            ]}
-                            onPress={() =>
-                              setFineTarget({
-                                id: p.id,
-                                name: `${p.firstName} ${p.lastName}`,
-                              })
-                            }
-                          >
-                            <Text
-                              style={{
-                                color: isSelected ? c.botonTexto : c.texto,
-                                fontWeight: isSelected ? "700" : "400",
-                              }}
-                            >
-                              {p.firstName} {p.lastName}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </ScrollView>
-                  )}
-                </View>
+                    <TouchableOpacity onPress={() => { setFineTarget(null); setFineQuery(""); }}>
+                      <Text style={{ color: c.subtexto, fontSize: 18, fontWeight: "700", lineHeight: 20 }}>{"✕"}</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={{ marginBottom: 10 }}>
+                    <TextInput
+                      style={[s.searchInput, { backgroundColor: c.input, borderColor: c.bordeInput, color: c.texto }]}
+                      placeholder={"Escribe nombre o apellido (mín. 3 letras)..."}
+                      placeholderTextColor={c.subtexto}
+                      value={fineQuery}
+                      onChangeText={setFineQuery}
+                    />
+                    {fineQuery.trim().length >= 3 && (() => {
+                      const hits = teamPlayers.filter((p) =>
+                        `${p.firstName} ${p.lastName ?? ""}`.toLowerCase().includes(fineQuery.trim().toLowerCase())
+                      );
+                      return hits.length > 0 ? (
+                        <View style={[s.dropdown, { borderColor: c.bordeInput }]}>
+                          <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false} style={{ maxHeight: 180 }}>
+                            {hits.map((p) => (
+                              <TouchableOpacity
+                                key={p.id}
+                                style={[s.dropdownItem, { borderBottomColor: c.bordeInput }]}
+                                onPress={() => {
+                                  setFineTarget({ id: p.id, name: `${p.firstName} ${p.lastName ?? ""}` });
+                                  setFineQuery("");
+                                }}
+                              >
+                                <Text style={{ color: c.texto, fontSize: 13 }}>{p.firstName} {p.lastName ?? ""}</Text>
+                              </TouchableOpacity>
+                            ))}
+                          </ScrollView>
+                        </View>
+                      ) : (
+                        <Text style={{ color: c.subtexto, fontSize: 12, marginTop: 6, marginLeft: 4 }}>{"Sin coincidencias."}</Text>
+                      );
+                    })()}
+                    {teamPlayers.length === 0 && (
+                      <Text style={{ color: c.subtexto, fontSize: 12, marginTop: 6, marginLeft: 4 }}>{"Sin jugadores en la plantilla."}</Text>
+                    )}
+                  </View>
+                )}
 
                 <Text style={[s.modalLabel, { color: c.subtexto }]}>
                   {t('coachManagement.fineReason')}
@@ -1296,7 +1360,8 @@ export default function GestionCoach() {
                   onPress={() => {
                     setFineModal(false);
                     setFineTarget(null);
-                    setFineError(""); // Limpia el error al cancelar
+                    setFineError("");
+                    setFineQuery("");
                   }}
                 >
                   <Text style={{ color: c.subtexto, fontWeight: "600" }}>
@@ -1307,6 +1372,35 @@ export default function GestionCoach() {
             </View>
           </KeyboardAvoidingView>
         </Modal>
+        {/* ── Modal confirmación ── */}
+        <Modal
+          visible={confirmModal.visible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setConfirmModal((prev) => ({ ...prev, visible: false }))}
+        >
+          <View style={s.modalOverlay}>
+            <View style={[s.modalBox, { backgroundColor: c.fondo, borderColor: c.bordeInput }]}>
+              <Text style={[s.modalTitle, { color: c.texto }]}>{confirmModal.title}</Text>
+              <Text style={{ color: c.subtexto, fontSize: 14, textAlign: "center", marginBottom: 20 }}>
+                {confirmModal.message}
+              </Text>
+              <TouchableOpacity
+                style={[s.btnPrimary, { backgroundColor: COLOR_PELIGRO }]}
+                onPress={confirmModal.onConfirm}
+              >
+                <Text style={[s.btnPrimaryText, { color: "#fff" }]}>Confirmar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={s.btnSecondary}
+                onPress={() => setConfirmModal((prev) => ({ ...prev, visible: false }))}
+              >
+                <Text style={{ color: c.subtexto, fontWeight: "600" }}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
       </View>
     </ScreenContainer>
   );
@@ -1440,17 +1534,10 @@ const s = StyleSheet.create({
   modalTitle: { fontSize: 20, fontWeight: "700", marginBottom: 15 },
   modalLabel: { fontSize: 12, fontWeight: "600", marginBottom: 4 },
 
-  playerSelectorBox: {
-    borderWidth: 1,
-    borderRadius: 8,
-    marginBottom: 10,
-    maxHeight: 130,
-  },
-  playerSelectorItem: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(0,0,0,0.05)",
-  },
+  searchInput: { borderWidth: 1, borderRadius: 10, padding: 10, fontSize: 13, marginBottom: 0 },
+  dropdown: { borderWidth: 1, borderRadius: 10, marginTop: 4, overflow: "hidden" },
+  dropdownItem: { padding: 12, borderBottomWidth: 1 },
+  linkedBadge: { flexDirection: "row", alignItems: "center", gap: 10, borderRadius: 10, borderWidth: 1, padding: 10, marginBottom: 10 },
 
   // Dashboard global de estadísticas
   dashboardTitle: { fontSize: 15, fontWeight: "700", marginBottom: 16 },

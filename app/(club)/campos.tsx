@@ -47,7 +47,11 @@ function CampoCard({
   howToGetLabel: string
   gestorActions?: React.ReactNode
 }) {
-  const hasImage = !brokenImgs.has(campo.id) && !!campo.photo_url
+  const mapsKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY
+  const mapStaticUri = campo.address && mapsKey
+    ? `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(campo.address)}&zoom=15&size=600x300&markers=color:red%7C${encodeURIComponent(campo.address)}&key=${mapsKey}`
+    : null
+  const hasImage = !brokenImgs.has(campo.id) && !!mapStaticUri
   const surfaceType = campo.surfaceType || campo.surface_type
 
   return (
@@ -68,7 +72,7 @@ function CampoCard({
         <View>
           {hasImage ? (
             <Image
-              source={{ uri: campo.photo_url }}
+              source={{ uri: mapStaticUri! }}
               style={styles.campoPhoto}
               resizeMode="cover"
               onError={() => setBrokenImgs(prev => new Set([...prev, campo.id]))}
@@ -140,7 +144,6 @@ export default function Campos() {
   const [nombre, setNombre]       = useState('')
   const [direccion, setDireccion] = useState('')
   const [mapsUrl, setMapsUrl]     = useState('')
-  const [photoUrl, setPhotoUrl]   = useState('')
 
   // ── CARGA ─────────────────────────────────────────────────────────────────
   const fetchCampos = useCallback(async () => {
@@ -229,7 +232,7 @@ export default function Campos() {
 
       const res = await apiFetch(url, {
         method: 'POST',
-        body: JSON.stringify({ name: nombre, address: direccion, mapUrl: mapsUrl, photoUrl: photoUrl || null }),
+        body: JSON.stringify({ name: nombre, address: direccion, mapUrl: mapsUrl, photoUrl: null }),
       })
       if (res.ok) {
         const nuevoCampo = await res.json()
@@ -358,7 +361,6 @@ export default function Campos() {
     setNombre('')
     setDireccion('')
     setMapsUrl('')
-    setPhotoUrl('')
   }
 
   const activos   = campos.filter(f => f.isActive)
@@ -578,27 +580,6 @@ export default function Campos() {
                     autoCapitalize="none"
                     editable={!saving}
                   />
-                </View>
-                <View>
-                  <Text style={[styles.label, { color: c.subtexto }]}>
-                    {t('fields.photoUrlLabel')} <Text style={{ fontStyle: 'italic' }}>({t('common.optional')})</Text>
-                  </Text>
-                  <TextInput
-                    style={[styles.input, { backgroundColor: c.input, borderColor: c.bordeInput, color: c.texto }]}
-                    value={photoUrl}
-                    onChangeText={setPhotoUrl}
-                    placeholder="https://..."
-                    placeholderTextColor={c.subtexto}
-                    autoCapitalize="none"
-                    editable={!saving}
-                  />
-                  {!!photoUrl && (
-                    <Image
-                      source={{ uri: photoUrl }}
-                      style={styles.photoPreview}
-                      resizeMode="cover"
-                    />
-                  )}
                 </View>
                 <TouchableOpacity
                   style={[styles.btnGuardar, { backgroundColor: saving ? c.bordeInput : c.boton }]}
