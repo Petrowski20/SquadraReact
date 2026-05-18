@@ -1,6 +1,6 @@
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
-import React from "react";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -142,6 +142,7 @@ function PickerWrapper({ visible, onClose, children, bgColor, botonColor }: Pick
 export default function CalendarModals() {
   const c = useTheme();
   const router = useRouter();
+  const [trainingToDelete, setTrainingToDelete] = useState<number | string | null>(null);
   const {
     isPresident,
     myTeamId,
@@ -494,7 +495,7 @@ export default function CalendarModals() {
                               styles.modalActionBtn,
                               { backgroundColor: "#ef444415", borderColor: "#ef4444" },
                             ]}
-                            onPress={() => handleDeleteEvent(item.id, item.type)}
+                            onPress={() => setTrainingToDelete(item.id)}
                             disabled={deletingId === `${item.type}-${item.id}`}
                           >
                             {deletingId === `${item.type}-${item.id}` ? (
@@ -972,6 +973,41 @@ export default function CalendarModals() {
           }}
         />
       </PickerWrapper>
+
+      {/* ─── MODAL CONFIRMAR BORRADO ──────────────────────────────────────── */}
+      <Modal visible={!!trainingToDelete} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { backgroundColor: c.fondo }]}>
+            <Text style={[styles.modalTitle, { color: c.texto }]}>
+              Eliminar evento
+            </Text>
+            <Text style={{ color: c.subtexto, marginBottom: 20, fontSize: 14 }}>
+              ¿Seguro que deseas eliminar este entrenamiento?
+            </Text>
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <TouchableOpacity
+                style={[
+                  styles.btnCrear,
+                  { flex: 1, backgroundColor: c.input, borderWidth: 1, borderColor: c.bordeInput },
+                ]}
+                onPress={() => setTrainingToDelete(null)}
+              >
+                <Text style={[styles.btnCrearText, { color: c.texto }]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.btnCrear, { flex: 1, backgroundColor: "#ef4444" }]}
+                onPress={async () => {
+                  const event = selectedDayEvents.find((e) => e.id === trainingToDelete);
+                  if (event) await handleDeleteEvent(event.id, event.type);
+                  setTrainingToDelete(null);
+                }}
+              >
+                <Text style={styles.btnCrearText}>Eliminar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 }

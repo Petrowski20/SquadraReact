@@ -211,7 +211,7 @@ interface DashboardContextValue {
   // Handlers
   fetchEvents: () => Promise<void>;
   handleCreateEvent: () => Promise<void>;
-  handleDeleteEvent: (eventId: number, eventType: "TRAINING" | "MATCH") => void;
+  handleDeleteEvent: (eventId: number, eventType: "TRAINING" | "MATCH") => Promise<void>;
   handleEditEvent: (event: CalendarEvent) => void;
   handleExportCSV: () => Promise<void>;
   handleImportClick: () => void;
@@ -511,51 +511,31 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
   // ─── BORRAR ─────────────────────────────────────────────────────────────
 
-  const handleDeleteEvent = (eventId: number, eventType: "TRAINING" | "MATCH") => {
+  const handleDeleteEvent = async (eventId: number, eventType: "TRAINING" | "MATCH") => {
     const eventKey = `${eventType}-${eventId}`;
-    Alert.alert(
-      "Eliminar Evento",
-      "¿Estás seguro? Esta acción no se puede deshacer.",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Eliminar",
-          style: "destructive",
-          onPress: async () => {
-            setDeletingId(eventKey);
-            try {
-              const res = await apiFetch(
-                `/api/calendar/${eventId}?clubId=${clubId}&type=${eventType}`,
-                { method: "DELETE" },
-              );
-              if (!res.ok) {
-                Alert.alert(
-                  "Error",
-                  `No se pudo eliminar el evento (HTTP ${res.status}).`,
-                );
-                return;
-              }
-              setEvents((prev) =>
-                prev.filter((e) => !(e.type === eventType && e.id === eventId)),
-              );
-              setSelectedDayEvents((prev) =>
-                prev.filter((e) => !(e.type === eventType && e.id === eventId)),
-              );
-              setDayModal(false);
-              fetchEvents();
-              Alert.alert("Éxito", "Evento eliminado.");
-            } catch {
-              Alert.alert(
-                "Error",
-                "No se pudo eliminar el evento. Comprueba tu conexión.",
-              );
-            } finally {
-              setDeletingId(null);
-            }
-          },
-        },
-      ],
-    );
+    setDeletingId(eventKey);
+    try {
+      const res = await apiFetch(
+        `/api/calendar/${eventId}?clubId=${clubId}&type=${eventType}`,
+        { method: "DELETE" },
+      );
+      if (!res.ok) {
+        Alert.alert("Error", `No se pudo eliminar el evento (HTTP ${res.status}).`);
+        return;
+      }
+      setEvents((prev) =>
+        prev.filter((e) => !(e.type === eventType && e.id === eventId)),
+      );
+      setSelectedDayEvents((prev) =>
+        prev.filter((e) => !(e.type === eventType && e.id === eventId)),
+      );
+      setDayModal(false);
+      fetchEvents();
+    } catch {
+      Alert.alert("Error", "No se pudo eliminar el evento. Comprueba tu conexión.");
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   // ─── EDITAR ─────────────────────────────────────────────────────────────
