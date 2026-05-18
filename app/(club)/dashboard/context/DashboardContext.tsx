@@ -471,7 +471,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
                   : formattedDate,
                 fieldId: fieldIdValue,
                 location: locationValue,
-                notes: form.notes,
+                notes: form.notes || null,
+                seasonLabel: currentSeasonLabel,
               }
             : {
                 teamId: Number(finalTeamId),
@@ -481,11 +482,17 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
                 location: locationValue,
                 isHome: form.isHome === "true",
                 matchType: form.matchType,
+                seasonLabel: currentSeasonLabel,
               };
-        await apiFetch(`${endpoint}?clubId=${clubId}`, {
+        console.log("PAYLOAD ENTRENAMIENTO:", body);
+        const res = await apiFetch(`${endpoint}?clubId=${clubId}`, {
           method: "POST",
           body: JSON.stringify(body),
         });
+        if (!res.ok) {
+          Alert.alert("Error", "No se pudo guardar el evento");
+          return;
+        }
       }
       setCreateModal(false);
       setEditingEvent(null);
