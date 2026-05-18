@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\PCGAMER\\\\Desktop\\\\squadra\\\\squadra-back\\\\src\\\\main\\\\java\\\\com\\\\squadra\\\\api\" -Recurse -Filter \"*.java\")",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Get-ChildItem *)"
+    ]
+  }
+}

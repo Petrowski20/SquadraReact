@@ -12,6 +12,23 @@ interface FeeWithPayments { feeId: number; concept: string; amount: number; dueD
 interface Team { id: number; category: string; gender: string; suffix: string; seasonLabel: string; }
 
 const getTodayStr = () => new Date().toISOString().split("T")[0];
+
+// Replica exacta de computeSeasonLabel del backend (FinanceService.java)
+// mes >= 8 → "YY-(YY+1)", mes < 8 → "(YY-1)-YY"
+const computeSeasonLabel = (date: Date = new Date()): string => {
+  const month = date.getMonth() + 1;
+  const year = date.getFullYear();
+  const firstYear = month >= 8 ? year : year - 1;
+  const secondYear = firstYear + 1;
+  const fmt = (n: number) => String(n % 100).padStart(2, "0");
+  return `${fmt(firstYear)}-${fmt(secondYear)}`;
+};
+
+const CATEGORY_LABEL: Record<string, string> = {
+  U8: "Prebenjamín", U10: "Benjamín", U12: "Alevín",
+  U14: "Infantil", U16: "Cadete", U19: "Juvenil", SENIOR: "Senior",
+};
+
 const computedStatus = (status: PaymentStatus, dueDate: string): PaymentStatus => {
   if (status === "PAID") return "PAID";
   if (dueDate < getTodayStr()) return "OVERDUE";
@@ -21,11 +38,10 @@ const computedStatus = (status: PaymentStatus, dueDate: string): PaymentStatus =
 export default function TabCuotas() {
   const c = useTheme();
   const { t } = useTranslation();
-  const { activeClubId: clubId, activeSeasonName } = useAuthStore();
-  const seasonLabel = activeSeasonName || "24-25";
+  const { activeClubId: clubId } = useAuthStore();
 
-  // Ref para el seasonLabel real obtenido del backend (equipos), evita el desajuste con el store
-  const slRef = useRef<string>(seasonLabel);
+  // seasonLabel calculado igual que el backend (desde la fecha actual), garantiza consistencia
+  const slRef = useRef<string>(computeSeasonLabel());
 
   const [fees, setFees] = useState<FeeWithPayments[]>([]);
   const [feesLoading, setFeesLoading] = useState(false);
@@ -68,7 +84,6 @@ export default function TabCuotas() {
         if (res.ok) {
           const data: Team[] = await res.json();
           setTeams(data);
-          if (data.length > 0) slRef.current = data[0].seasonLabel;
         }
       } catch {}
       fetchFees(0);
@@ -103,18 +118,41 @@ export default function TabCuotas() {
 
     try {
       let created = 0;
+      const createdFees: FeeWithPayments[] = [];
+
       for (const tid of targetTeamIds) {
         const res = await apiFetch(`/api/president/fees?clubId=${clubId}&seasonLabel=${slRef.current}`, {
           method: "POST",
           body: JSON.stringify({ teamId: tid, concept: feeForm.concept.trim(), amount: parsedAmount, dueDate: feeForm.dueDate }),
         });
-        if (res.ok) created++;
+        if (res.ok) {
+          created++;
+          try {
+            const body = await res.json();
+            if (body?.feeId) {
+              createdFees.push({ ...body, payments: body.payments ?? [] });
+            }
+          } catch {}
+        }
       }
+
       if (created > 0) {
+        const teamIdSnapshot = feeForm.teamId;
+        // Sincronizar slRef con la temporada que el backend calculó desde el dueDate
+        slRef.current = computeSeasonLabel(dueDay);
+
         setCreateFeeModal(false);
         setFeeForm({ teamId: "ALL" });
-        await fetchFees(0);
-        Alert.alert("Éxito", feeForm.teamId === "ALL" ? `Cuotas generadas para ${created} equipo(s).` : "Cuota generada.");
+
+        if (createdFees.length > 0) {
+          // El servidor devolvió las cuotas en el POST — las mostramos de inmediato
+          setFees((prev) => [...createdFees, ...prev]);
+        } else {
+          // El servidor no devolvió las cuotas en el POST — refrescamos con la temporada correcta
+          await fetchFees(0);
+        }
+
+        Alert.alert("Éxito", teamIdSnapshot === "ALL" ? `Cuotas generadas para ${created} equipo(s).` : "Cuota generada.");
       } else { Alert.alert("Error", "El servidor rechazó la creación."); }
     } catch { Alert.alert("Error", "Problema de conexión."); }
   };
@@ -245,7 +283,7 @@ export default function TabCuotas() {
                 </TouchableOpacity>
                 {teams.map((t) => (
                   <TouchableOpacity key={t.id} onPress={() => setFeeForm((f) => ({ ...f, teamId: t.id }))} style={[styles.chip, feeForm.teamId === t.id ? { backgroundColor: c.boton } : { backgroundColor: c.input, borderWidth: 1, borderColor: c.bordeInput }]}>
-                    <Text style={{ color: feeForm.teamId === t.id ? "#fff" : c.subtexto }}>{`${t.category} ${t.suffix}`}</Text>
+                    <Text style={{ color: feeForm.teamId === t.id ? "#fff" : c.subtexto }}>{`${CATEGORY_LABEL[t.category] ?? t.category} ${t.suffix}`}</Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>

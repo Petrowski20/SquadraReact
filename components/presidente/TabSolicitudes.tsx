@@ -33,6 +33,10 @@ const PLAYER_POSITIONS: { value: PlayerPosition; label: string }[] = [
   { value: "GOALKEEPER", label: "Portero/a" }, { value: "DEFENDER", label: "Defensa" },
   { value: "MIDFIELDER", label: "Centrocampista" }, { value: "FORWARD", label: "Delantero/a" },
 ];
+const CATEGORY_LABEL: Record<string, string> = {
+  U8: "Prebenjamín", U10: "Benjamín", U12: "Alevín",
+  U14: "Infantil", U16: "Cadete", U19: "Juvenil", SENIOR: "Senior",
+};
 const ASSIGNABLE_ROLES: { value: AssignableRole; label: string }[] = [
   { value: "PLAYER", label: "Jugador/a" }, { value: "COACH", label: "Entrenador / Staff" }, { value: "RELATIVE", label: "Familiar" },
 ];
@@ -265,7 +269,7 @@ export default function TabSolicitudes() {
                       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
                         {teams.map((t) => (
                           <TouchableOpacity key={t.id} onPress={() => setAssignTeamId(t.id)} style={[styles.chip, assignTeamId === t.id ? { backgroundColor: c.boton } : { backgroundColor: c.input, borderWidth: 1, borderColor: c.bordeInput }]}>
-                            <Text style={{ color: assignTeamId === t.id ? "#fff" : c.subtexto, fontSize: 12 }}>{`${t.category} ${t.suffix}`}</Text>
+                            <Text style={{ color: assignTeamId === t.id ? "#fff" : c.subtexto, fontSize: 12 }}>{`${CATEGORY_LABEL[t.category] ?? t.category} ${t.suffix}`}</Text>
                           </TouchableOpacity>
                         ))}
                       </ScrollView>
@@ -303,7 +307,7 @@ export default function TabSolicitudes() {
                       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
                         {teams.map((t) => (
                           <TouchableOpacity key={t.id} onPress={() => setAssignTeamId(t.id)} style={[styles.chip, assignTeamId === t.id ? { backgroundColor: c.boton } : { backgroundColor: c.input, borderWidth: 1, borderColor: c.bordeInput }]}>
-                            <Text style={{ color: assignTeamId === t.id ? "#fff" : c.subtexto, fontSize: 12 }}>{`${t.category} ${t.suffix}`}</Text>
+                            <Text style={{ color: assignTeamId === t.id ? "#fff" : c.subtexto, fontSize: 12 }}>{`${CATEGORY_LABEL[t.category] ?? t.category} ${t.suffix}`}</Text>
                           </TouchableOpacity>
                         ))}
                       </ScrollView>
@@ -352,7 +356,7 @@ export default function TabSolicitudes() {
                           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
                             {teams.map((t) => (
                               <TouchableOpacity key={t.id} onPress={() => setAssignTeamId(t.id)} style={[styles.chip, assignTeamId === t.id ? { backgroundColor: c.boton } : { backgroundColor: c.input, borderWidth: 1, borderColor: c.bordeInput }]}>
-                                <Text style={{ color: assignTeamId === t.id ? "#fff" : c.subtexto, fontSize: 12 }}>{`${t.category} ${t.suffix}`}</Text>
+                                <Text style={{ color: assignTeamId === t.id ? "#fff" : c.subtexto, fontSize: 12 }}>{`${CATEGORY_LABEL[t.category] ?? t.category} ${t.suffix}`}</Text>
                               </TouchableOpacity>
                             ))}
                           </ScrollView>

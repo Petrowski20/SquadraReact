@@ -19,8 +19,19 @@ export default function GestionPresidente() {
   const seasonLabel = activeSeasonName || "24-25";
 
   const [activeTab, setActiveTab] = useState<Tab>("SOLICITUDES");
+  const [mountedTabs, setMountedTabs] = useState<Set<Tab>>(new Set<Tab>(["SOLICITUDES"]));
   const [refreshKey, setRefreshKey] = useState(0);
   const initialFocusDone = useRef(false);
+
+  const changeTab = useCallback((tab: Tab) => {
+    setMountedTabs((prev) => {
+      if (prev.has(tab)) return prev;
+      const next = new Set(prev);
+      next.add(tab);
+      return next;
+    });
+    setActiveTab(tab);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -51,7 +62,7 @@ export default function GestionPresidente() {
         {(["SOLICITUDES", "CUOTAS", "EQUIPOS"] as Tab[]).map((tab) => (
           <TouchableOpacity
             key={tab}
-            onPress={() => setActiveTab(tab)}
+            onPress={() => changeTab(tab)}
             style={[
               {
                 flex: 1,
@@ -77,11 +88,23 @@ export default function GestionPresidente() {
         ))}
       </View>
 
-      {/* Contenido (Renderizado Condicional) */}
+      {/* Contenido — lazy mount: se monta al entrar por primera vez, permanece en memoria al cambiar de pestaña */}
       <View style={{ flex: 1 }}>
-        {activeTab === "SOLICITUDES" && <TabSolicitudes key={refreshKey} />}
-        {activeTab === "CUOTAS" && <TabCuotas key={refreshKey} />}
-        {activeTab === "EQUIPOS" && <TabEquipos key={refreshKey} />}
+        {mountedTabs.has("SOLICITUDES") && (
+          <View style={{ flex: 1, display: activeTab === "SOLICITUDES" ? "flex" : "none" }}>
+            <TabSolicitudes key={refreshKey} />
+          </View>
+        )}
+        {mountedTabs.has("CUOTAS") && (
+          <View style={{ flex: 1, display: activeTab === "CUOTAS" ? "flex" : "none" }}>
+            <TabCuotas key={refreshKey} />
+          </View>
+        )}
+        {mountedTabs.has("EQUIPOS") && (
+          <View style={{ flex: 1, display: activeTab === "EQUIPOS" ? "flex" : "none" }}>
+            <TabEquipos key={refreshKey} />
+          </View>
+        )}
       </View>
     </View>
   );

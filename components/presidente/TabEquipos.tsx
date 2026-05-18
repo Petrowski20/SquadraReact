@@ -13,13 +13,13 @@ const GENDER_OPTIONS: { value: TeamGender; label: string }[] = [
   { value: "MALE", label: "♂ Masc." }, { value: "FEMALE", label: "♀ Fem." }, { value: "MIXED", label: "⚥ Mixto" },
 ];
 const CATEGORY_OPTIONS: { value: string; labelKey: string }[] = [
-  { value: "Prebenjamín",  labelKey: "categories.prebenjamin" },
-  { value: "Benjamín",     labelKey: "categories.benjamin"    },
-  { value: "Alevín",       labelKey: "categories.alevin"      },
-  { value: "Infantil",     labelKey: "categories.infantil"    },
-  { value: "Cadete",       labelKey: "categories.cadete"      },
-  { value: "Juvenil",      labelKey: "categories.juvenil"     },
-  { value: "Senior",       labelKey: "categories.senior"      },
+  { value: "U8",     labelKey: "categories.prebenjamin" },
+  { value: "U10",    labelKey: "categories.benjamin"    },
+  { value: "U12",    labelKey: "categories.alevin"      },
+  { value: "U14",    labelKey: "categories.infantil"    },
+  { value: "U16",    labelKey: "categories.cadete"      },
+  { value: "U19",    labelKey: "categories.juvenil"     },
+  { value: "SENIOR", labelKey: "categories.senior"      },
 ];
 
 export default function TabEquipos() {
@@ -31,30 +31,49 @@ export default function TabEquipos() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [createTeamModal, setCreateTeamModal] = useState(false);
   const [teamForm, setTeamForm] = useState<Partial<{ category: string; gender: TeamGender; suffix: string }>>({ gender: "MALE" });
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [deleteErrorModal, setDeleteErrorModal] = useState(false);
 
   const fetchTeams = useCallback(async () => {
     try {
       const res = await apiFetch(`/api/president/club/${clubId}/teams`);
-      setTeams(await res.json());
+      const data = await res.json();
+      setTeams(Array.isArray(data) ? data : []);
     } catch {}
   }, [clubId]);
 
   useEffect(() => { fetchTeams(); }, [fetchTeams]);
 
   const handleCreateTeam = async () => {
-    if (!teamForm.category || !teamForm.gender || !teamForm.suffix?.trim()) return Alert.alert("Atención", "Elige categoría, género y escribe un sufijo.");
+    if (!teamForm.category || !teamForm.gender || !teamForm.suffix?.trim()) {
+      setCreateError("Elige categoría, género y escribe un sufijo.");
+      return;
+    }
+    setCreateError(null);
+    setSubmitting(true);
     try {
       const res = await apiFetch(`/api/president/teams?clubId=${clubId}&seasonLabel=${seasonLabel}`, {
         method: "POST",
         body: JSON.stringify({ category: teamForm.category, gender: teamForm.gender, suffix: teamForm.suffix.trim() }),
       });
-      const data: Team = await res.json();
-      setTeams((prev) => [...prev, data]);
+      if (!res.ok) {
+        let msg = "No se pudo crear el equipo.";
+        try { const body = await res.json(); msg = body.message || body.error || JSON.stringify(body); } catch {}
+        console.error("[TabEquipos] POST /teams status:", res.status, "msg:", msg);
+        setCreateError(msg);
+        return;
+      }
+      await fetchTeams();
       setCreateTeamModal(false);
       setTeamForm({ gender: "MALE" });
-    } catch { Alert.alert("Error", "No se pudo crear el equipo."); }
+      setCreateError(null);
+    } catch {
+      setCreateError("Error de conexión. Comprueba tu red.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleDeleteTeam = async () => {
@@ -75,7 +94,7 @@ export default function TabEquipos() {
 
   return (
     <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-      <TouchableOpacity style={[styles.btnMain, { backgroundColor: c.boton }]} onPress={() => setCreateTeamModal(true)}>
+      <TouchableOpacity style={[styles.btnMain, { backgroundColor: c.boton }]} onPress={() => { setCreateTeamModal(true); setCreateError(null); }}>
         <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 16 }}>{"+ Nuevo Equipo"}</Text>
       </TouchableOpacity>
 
@@ -161,12 +180,16 @@ export default function TabEquipos() {
               <Text style={[styles.inputLabel, { color: c.texto }]}>{"Sufijo (Ej: A, B, Norte...)"}</Text>
               <TextInput style={[styles.textInput, { backgroundColor: c.input, color: c.texto, borderColor: c.bordeInput }]} placeholder="A" placeholderTextColor={c.subtexto} onChangeText={(v) => setTeamForm((f) => ({ ...f, suffix: v }))} value={teamForm.suffix ?? ""} />
 
+              {createError && (
+                <Text style={{ color: "#DC2626", fontSize: 13, textAlign: "center", marginBottom: 8 }}>{createError}</Text>
+              )}
+
               <View style={{ flexDirection: "row", gap: 10, marginTop: 8 }}>
-                <TouchableOpacity style={[styles.btnMain, { backgroundColor: c.input, flex: 1, borderWidth: 1, borderColor: c.bordeInput }]} onPress={() => { setCreateTeamModal(false); setTeamForm({ gender: "MALE" }); }}>
+                <TouchableOpacity style={[styles.btnMain, { backgroundColor: c.input, flex: 1, borderWidth: 1, borderColor: c.bordeInput }]} onPress={() => { setCreateTeamModal(false); setTeamForm({ gender: "MALE" }); setCreateError(null); }}>
                   <Text style={{ color: c.texto, fontWeight: "bold" }}>{"Cancelar"}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.btnMain, { backgroundColor: c.boton, flex: 1 }]} onPress={handleCreateTeam}>
-                  <Text style={{ color: "#fff", fontWeight: "bold" }}>{"Crear Equipo"}</Text>
+                <TouchableOpacity disabled={submitting} style={[styles.btnMain, { backgroundColor: submitting ? c.subtexto : c.boton, flex: 1 }]} onPress={handleCreateTeam}>
+                  <Text style={{ color: "#fff", fontWeight: "bold" }}>{submitting ? "Creando..." : "Crear Equipo"}</Text>
                 </TouchableOpacity>
               </View>
             </View>
