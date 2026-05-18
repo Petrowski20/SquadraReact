@@ -434,7 +434,11 @@
   "pwError": "Error al cambiar la contraseña",
   "unknownUser": "Usuario",
   "linkedPlayer": "Jugador vinculado",
-  "linkedPlayers": "Jugadores vinculados"
+  "linkedPlayers": "Jugadores vinculados",
+  "contact": "CONTACTO",
+  "contactSub": "¿Tienes un problema o sugerencia? Escríbenos a:",
+  "contactCopied": "Correo copiado al portapapeles",
+  "contactTap": "Pulsa para copiar"
 },
 "categories": {
   "prebenjamin": "Prebenjamín",

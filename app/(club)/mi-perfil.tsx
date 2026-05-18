@@ -1,9 +1,9 @@
 import * as ImageManipulator from 'expo-image-manipulator'
 import * as ImagePicker from 'expo-image-picker'
 import { router } from 'expo-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ActivityIndicator, Image, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View, Modal, TextInput } from 'react-native'
+import { ActivityIndicator, Animated, Clipboard, Image, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View, Modal, TextInput } from 'react-native'
 import ScreenContainer from '../../components/ScreenContainer'
 import { apiFetch } from '../../lib/api'
 import i18n from '../../lib/i18n'
@@ -11,6 +11,7 @@ import { useAuthStore } from '../../lib/store'
 import { useTheme } from '../../lib/useTheme'
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://squadraapi.onrender.com'
+const CONTACT_EMAIL = 'marcospedroproyecto@gmail.com'
 
 async function pickAndCompressImage(): Promise<string | null> {
   const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
@@ -77,6 +78,18 @@ const [pwModal, setPwModal] = useState(false);
   const [pwLoading, setPwLoading] = useState(false);
   const [pwError, setPwError] = useState('');
 
+  const [toastMsg, setToastMsg] = useState('');
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    Animated.sequence([
+      Animated.timing(toastOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+      Animated.delay(1800),
+      Animated.timing(toastOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+    ]).start();
+  };
+
   const c = useTheme()
   const { t } = useTranslation()
   const profile = useAuthStore((s: any) => s.profile)
@@ -123,6 +136,7 @@ const [pwModal, setPwModal] = useState(false);
         setPwLoading(false);
       }
     };
+
 
   const handleLanguage = (lang: 'es' | 'en') => {
     setLanguage(lang)
@@ -296,6 +310,21 @@ const [pwModal, setPwModal] = useState(false);
           </View>
           <Text style={{ color: c.subtexto, fontSize: 20 }}>›</Text>
         </TouchableOpacity>
+        {/* Contactar con desarrolladores */}
+        <TouchableOpacity
+          style={[styles.card, { borderColor: c.bordeInput, backgroundColor: c.input, gap: 4 }]}
+          onPress={() => {
+            Clipboard.setString(CONTACT_EMAIL)
+            showToast(t('profile.contactCopied'))
+          }}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.cardTitle, { color: c.subtexto }]}>{t('profile.contact')}</Text>
+          <Text style={[styles.accionSub, { color: c.subtexto, marginBottom: 2 }]}>{t('profile.contactSub')}</Text>
+          <Text style={[{ color: c.boton, fontSize: 14, fontWeight: '600' }]}>{CONTACT_EMAIL}</Text>
+          <Text style={[{ color: c.subtexto, fontSize: 11, marginTop: 2 }]}>{t('profile.contactTap')}</Text>
+        </TouchableOpacity>
+
         {/* Cambiar de club */}
         <TouchableOpacity
           style={[styles.card, styles.accionBtn, { borderColor: `${c.boton}40`, backgroundColor: `${c.boton}08` }]}
@@ -365,6 +394,12 @@ const [pwModal, setPwModal] = useState(false);
           </View>
         </View>
       </Modal>
+
+
+      {/* TOAST */}
+      <Animated.View pointerEvents="none" style={[styles.toast, { opacity: toastOpacity }]}>
+        <Text style={styles.toastText}>✓ {toastMsg}</Text>
+      </Animated.View>
 
     </ScreenContainer>
   )
@@ -440,4 +475,14 @@ const styles = StyleSheet.create({
   playerAvatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   playerName: { fontSize: 15, fontWeight: '600' },
   playerTeam: { fontSize: 13, marginTop: 2 },
+  toast: {
+    position: 'absolute',
+    bottom: 40,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(30,30,30,0.88)',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 24,
+  },
+  toastText: { color: '#fff', fontSize: 14, fontWeight: '600' },
 })

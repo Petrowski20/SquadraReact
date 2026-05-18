@@ -437,7 +437,11 @@
   "pwError": "Error changing password",
   "unknownUser": "User",
   "linkedPlayer": "Linked player",
-  "linkedPlayers": "Linked players"
+  "linkedPlayers": "Linked players",
+  "contact": "CONTACT",
+  "contactSub": "Have a problem or suggestion? Write to us at:",
+  "contactCopied": "Email copied to clipboard",
+  "contactTap": "Tap to copy"
 },
 "categories": {
   "prebenjamin": "Prebenjamín (U8)",
