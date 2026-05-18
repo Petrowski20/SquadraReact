@@ -15,7 +15,6 @@ export default function PitchView() {
     isRunning,
     setIsRunning,
     setSeconds,
-    handleOpenSubModal,
     handleSave,
     saving,
     setPitchPlayer,
@@ -117,18 +116,17 @@ export default function PitchView() {
       {/* Bench */}
       {bench.length > 0 && (
         <View style={{ paddingHorizontal: 16, marginTop: 12 }}>
-          <Text style={[s.sectionTitle, { color: c.texto, fontSize: 13 }]}>🪑 Banquillo — toca para sustituir</Text>
+          <Text style={[s.sectionTitle, { color: c.texto, fontSize: 13 }]}>🪑 Banquillo</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {bench.map((p) => (
-              <TouchableOpacity
+              <View
                 key={p.playerId}
                 style={[s.benchChip, { backgroundColor: c.input }]}
-                onPress={() => handleOpenSubModal(p)}
               >
                 <Text style={{ fontSize: 11, color: c.texto, fontWeight: "600" }} numberOfLines={1}>
                   {p.firstName[0]}. {p.lastName}
                 </Text>
-              </TouchableOpacity>
+              </View>
             ))}
           </ScrollView>
         </View>

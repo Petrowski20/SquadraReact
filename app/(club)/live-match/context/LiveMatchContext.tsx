@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, {
   createContext,
@@ -249,7 +250,19 @@ export function LiveMatchProvider({ children }: { children: React.ReactNode }) {
       );
 
       setCalledUpIds(calledUp);
-      setStats(statsData);
+
+      // Restore locally-saved assignedPositions (unsaved drafts survive navigation)
+      const savedPositionsStr = await AsyncStorage.getItem(`match_positions_${matchId}`).catch(() => null);
+      if (savedPositionsStr) {
+        const savedPositions: Record<number, string> = JSON.parse(savedPositionsStr);
+        setStats(statsData.map((p) =>
+          savedPositions[p.playerId] !== undefined
+            ? { ...p, assignedPosition: savedPositions[p.playerId] }
+            : p,
+        ));
+      } else {
+        setStats(statsData);
+      }
 
       // En modo LIVE: si hay titulares, inferir formación desde assignedPosition e ir
       // al campo. Si no hay ninguno, forzar paso de convocados.
@@ -300,15 +313,31 @@ export function LiveMatchProvider({ children }: { children: React.ReactNode }) {
 
   const visibleStats = stats.filter((p) => calledUpIds.has(p.playerId));
 
+  // ── Local position persistence ────────────────────────────────────────────
+  const positionsKey = `match_positions_${matchId}`;
+
+  const savePositionsLocally = useCallback(
+    (currentStats: StatsEntry[]) => {
+      const positions: Record<number, string> = {};
+      for (const p of currentStats) {
+        if (p.assignedPosition) positions[p.playerId] = p.assignedPosition;
+      }
+      AsyncStorage.setItem(positionsKey, JSON.stringify(positions)).catch(() => {});
+    },
+    [positionsKey],
+  );
+
   // ── Stat mutation ─────────────────────────────────────────────────────────
   const updateStat = (
     playerId: number,
     field: keyof StatsEntry,
     value: number | boolean | string,
   ) => {
-    setStats((prev) =>
-      prev.map((p) => (p.playerId === playerId ? { ...p, [field]: value } : p)),
-    );
+    setStats((prev) => {
+      const updated = prev.map((p) => (p.playerId === playerId ? { ...p, [field]: value } : p));
+      if (field === "assignedPosition") savePositionsLocally(updated);
+      return updated;
+    });
   };
 
   // ── Status helper (closes over matchEvents) ───────────────────────────────
@@ -353,6 +382,25 @@ export function LiveMatchProvider({ children }: { children: React.ReactNode }) {
 
   const handleConfirmSub = (benchPlayer: StatsEntry) => {
     if (!playerToSubOut) return;
+
+    // Guard: the player going out must be currently on the field
+    const outStatus = getPlayerStatus(playerToSubOut.playerId, playerToSubOut.wasStarter, matchEvents);
+    if (!outStatus.isCurrentlyPlaying) {
+      setSubModalVisible(false);
+      setPlayerToSubOut(null);
+      return;
+    }
+
+    // Safety cap: never allow more than 11 players on the field
+    const onFieldCount = visibleStats.filter(
+      (p) => getPlayerStatus(p.playerId, p.wasStarter, matchEvents).isCurrentlyPlaying,
+    ).length;
+    if (onFieldCount > 11) {
+      setSubModalVisible(false);
+      setPlayerToSubOut(null);
+      return;
+    }
+
     const currentMinute = Math.floor(seconds / 60);
     if (playerToSubOut.assignedPosition) {
       updateStat(benchPlayer.playerId, "assignedPosition", playerToSubOut.assignedPosition);
@@ -509,6 +557,7 @@ export function LiveMatchProvider({ children }: { children: React.ReactNode }) {
       }
       const responseBody = await res.text().catch(() => "");
       console.log("[handleClose] Partido cerrado OK. Respuesta backend:", responseBody);
+      AsyncStorage.removeItem(positionsKey).catch(() => {});
       setCloseModal(false);
       router.replace("/(club)/calendario");
     } catch (e: any) {
@@ -538,6 +587,7 @@ export function LiveMatchProvider({ children }: { children: React.ReactNode }) {
 
   // ── Reset match ───────────────────────────────────────────────────────────
   const applyReset = () => {
+    AsyncStorage.removeItem(positionsKey).catch(() => {});
     setMatchEvents([]);
     setSeconds(0);
     setIsRunning(false);
